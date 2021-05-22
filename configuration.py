@@ -63,6 +63,7 @@ class Configuration(object):
         parser.add_argument('--eval_every', type=int, default=400, help='Evaluate validation set every so many iters.')
         parser.add_argument('--tag', default='', help='A custom tag for this experiment.')
         parser.add_argument('--seed', type=int, default=None, help='Random number generator seed.')
+        parser.add_argument('--model', type=str, default=None, help='Defines the model to train on.')
 
         # Data.
         parser.add_argument('--seed_seq_len', type=int, default=120, help='Number of frames for the seed length.')
