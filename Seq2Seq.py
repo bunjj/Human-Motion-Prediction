@@ -83,7 +83,7 @@ class Seq2Seq(BaseModel):
         encoder_inputs = batch.poses[:, 0:self.seed_seq_len - 1, :]
         #decoder_inputs = batch.poses[:, self.seed_seq_len - 1:self.seed_seq_len + self.target_seq_len - 1, :]
         decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
-
+        decoder_inputs[:, 0, :] = batch.poses[:, self.seed_seq_len -1, :]
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
