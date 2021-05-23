@@ -55,7 +55,7 @@ class Seq2Seq(BaseModel):
         self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq, self).__init__(config)
 
-    def create_model(self):.
+    def create_model(self):
         self.cell = nn.GRUCell(self.input_size, self.rnn_size)
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
