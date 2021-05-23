@@ -108,6 +108,7 @@ def evaluate_test(model_id, viz=False):
 
     # Put the model in evaluation mode.
     net.eval()
+    net.is_test = True
     results = dict()
     with torch.no_grad():
         for abatch in test_loader:
@@ -133,7 +134,8 @@ def evaluate_test(model_id, viz=False):
         sample_keys = [list(sorted(results.keys()))[i] for i in idxs]
         for k in sample_keys:
             visualizer.visualize(results[k][1], results[k][0], title='Sample ID: {}'.format(k))
-
+    
+    net.is_test = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
