@@ -91,11 +91,13 @@ class Seq2Seq(BaseModel):
 
         if self.use_cuda:
             state = state.cuda()
+            decoder_inputs= decoder_inputs.cuda()
         for i in range(self.seed_seq_len - 1):
             state = self.cell(encoder_inputs[i], state)
             state = nn.functional.dropout(state, self.dropout, training=self.training)
             if self.use_cuda:
                 state = state.cuda()
+
 
         outputs = []
         prev = None
