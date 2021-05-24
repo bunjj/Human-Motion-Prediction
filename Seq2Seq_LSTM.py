@@ -97,6 +97,7 @@ class Seq2Seq_LSTM(BaseModel):
             state_hn = state_hn.cuda()
             state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
+            print(encoder_inputs[i].shape)
             state, (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn,state_cn))
             state = nn.functional.dropout(state, self.dropout, training=self.training)
             if self.use_cuda:
