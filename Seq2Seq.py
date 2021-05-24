@@ -52,7 +52,6 @@ class Seq2Seq(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
 
-        self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
@@ -84,8 +83,7 @@ class Seq2Seq(BaseModel):
         if not self.training:
             decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
             decoder_inputs[:,0,:] = batch.poses[:,self.seed_seq_len-1, :]
-            if self.use_cuda:
-                decoder_inputs = decoder_inputs.cuda()
+            decoder_inputs = decoder_inputs.to(C.DEVICE)
         else:
             decoder_inputs  = batch.poses[:, self.seed_seq_len-1:self.seed_seq_len+self.target_seq_len-1, :]
 
@@ -96,13 +94,11 @@ class Seq2Seq(BaseModel):
 
         state = torch.zeros(batch_size, self.rnn_size)
 
-        if self.use_cuda:
-            state = state.cuda()
+        state  = state.to(C.DEVICE)
         for i in range(self.seed_seq_len - 1):
             state = self.cell(encoder_inputs[i], state)
             state = nn.functional.dropout(state, self.dropout, training=self.training)
-            if self.use_cuda:
-                state = state.cuda()
+            state = state.to(C.DEVICE)
 
 
         outputs = []
