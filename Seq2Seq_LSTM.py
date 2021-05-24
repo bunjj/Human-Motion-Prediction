@@ -109,7 +109,7 @@ class Seq2Seq_LSTM(BaseModel):
 
             if self.use_cuda:
                 state_hn = state_hn.cuda()
-                #state_cn = state_cn.cuda()
+                state_cn = state_cn.cuda()
 
         outputs = []
         prev = None
