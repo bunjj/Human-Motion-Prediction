@@ -51,13 +51,16 @@ class Seq2Seq_LSTM(BaseModel):
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
-        self.num_layers = 3
-
+        self.num_layers = 1
         self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq_LSTM, self).__init__(config)
+        print(vars(self))
 
     def create_model(self):
-        self.cell = nn.LSTM(self.input_size, self.rnn_size, num_layers=self.num_layers)
+        self.cells = [nn.LSTMCell(self.input_size, self.rnn_size)]
+        if num_layers-1 > 0:
+            for i in range(num_layers-1):
+                self.cells.append(nn.LSTMCell(self.rnn_size, self.rnn_size))
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
     def forward(self, batch: AMASSBatch):
@@ -88,26 +91,25 @@ class Seq2Seq_LSTM(BaseModel):
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state = torch.zeros(batch_size, self.rnn_size)
-        state_hn = torch.zeros(self.num_layers, batch_size, self.rnn_size)
-        state_cn = torch.zeros(self.num_layers, batch_size, self.rnn_size)
+        state_hn = torch.zeros(batch_size, self.rnn_size)
+        state_cn = torch.zeros(batch_size, self.rnn_size)
 
         if self.use_cuda:
-            state = state.cuda()
             state_hn = state_hn.cuda()
             state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
-            print(encoder_inputs[i].shape)
-            state, (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn,state_cn))
-            state = nn.functional.dropout(state, self.dropout, training=self.training)
-            if self.use_cuda:
-                state = state.cuda()
-                #state_hn = state_hn.cuda()
-                #state_cn = state_cn.cuda()
+            
+            (state_hn, state_cn) = self.cells[0](encoder_inputs[i], (state_hn,state_cn))
+            
+            if num_layers-1 >0:
+                for cell in self.cells[1:]:
+                    (state_hn, state_cn) = cell(state_hn, (state_hn,state_cn))
 
-        print(f'state.shape {state.shape}')
-        print(f'state_hn.shape {state_hn.shape}')
-        print(f'state_cn.shape {state_cn.shape}')
+            state_hn = nn.functional.dropout(state_hn, self.dropout, training=self.training)
+
+            if self.use_cuda:
+                state_hn = state_hn.cuda()
+                #state_cn = state_cn.cuda()
 
         outputs = []
         prev = None
@@ -117,9 +119,13 @@ class Seq2Seq_LSTM(BaseModel):
 
             inp = inp.detach()
 
-            state, (state_hn, state_cn) = self.cell(inp,(state_hn,state_cn))
-
-            output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
+            (state_hn, state_cn) = self.cells[0](inp,(state_hn,state_cn))
+            
+            if num_layers-1 >0:
+                for cell in self.cells[1:]:
+                    (state_hn, state_cn) = cell(state_hn, (state_hn,state_cn))
+            
+            output = inp + self.fc1(nn.functional.dropout(state_hn, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
 
             if loop_function is not None:
