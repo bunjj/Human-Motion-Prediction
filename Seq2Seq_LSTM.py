@@ -57,10 +57,10 @@ class Seq2Seq_LSTM(BaseModel):
         print(vars(self))
 
     def create_model(self):
-        self.cells = [nn.LSTMCell(self.input_size, self.rnn_size)]
+        self.cells = [nn.LSTMCell(self.input_size, self.rnn_size, bias=False)]
         if self.num_layers-1 > 0:
             for i in range(self.num_layers-1):
-                self.cells.append(nn.LSTMCell(self.rnn_size, self.rnn_size))
+                self.cells.append(nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False))
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
     def forward(self, batch: AMASSBatch):
@@ -98,7 +98,6 @@ class Seq2Seq_LSTM(BaseModel):
             state_hn = state_hn.cuda()
             state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
-            
             (state_hn, state_cn) = self.cells[0](encoder_inputs[i], (state_hn,state_cn))
             
             if self.num_layers-1 >0:
@@ -109,7 +108,7 @@ class Seq2Seq_LSTM(BaseModel):
 
             if self.use_cuda:
                 state_hn = state_hn.cuda()
-                state_cn = state_cn.cuda()
+                #state_cn = state_cn.cuda()
 
         outputs = []
         prev = None
