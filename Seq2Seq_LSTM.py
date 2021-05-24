@@ -89,14 +89,24 @@ class Seq2Seq_LSTM(BaseModel):
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
         state = torch.zeros(batch_size, self.rnn_size)
+        state_hn = torch.zeros(self.num_layers, batch_size, self.rnn_size)
+        state_cn = torch.zeros(self.num_layers, batch_size, self.rnn_size)
 
         if self.use_cuda:
             state = state.cuda()
+            state_hn = state_hn.cuda()
+            state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
-            state = self.cell(encoder_inputs[i], state)
+            state, (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn,state_cn))
             state = nn.functional.dropout(state, self.dropout, training=self.training)
             if self.use_cuda:
                 state = state.cuda()
+                #state_hn = state_hn.cuda()
+                #state_cn = state_cn.cuda()
+
+        print(f'state.shape {state.shape}')
+        print(f'state_hn.shape {state_hn.shape}')
+        print(f'state_cn.shape {state_cn.shape}')
 
         outputs = []
         prev = None
@@ -106,7 +116,7 @@ class Seq2Seq_LSTM(BaseModel):
 
             inp = inp.detach()
 
-            state = self.cell(inp, state)
+            state, (state_hn, state_cn) = self.cell(inp,(state_hn,state_cn))
 
             output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
