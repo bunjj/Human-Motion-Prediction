@@ -58,8 +58,8 @@ class Seq2Seq_LSTM(BaseModel):
 
     def create_model(self):
         self.cells = [nn.LSTMCell(self.input_size, self.rnn_size)]
-        if num_layers-1 > 0:
-            for i in range(num_layers-1):
+        if self.num_layers-1 > 0:
+            for i in range(self.num_layers-1):
                 self.cells.append(nn.LSTMCell(self.rnn_size, self.rnn_size))
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
@@ -101,7 +101,7 @@ class Seq2Seq_LSTM(BaseModel):
             
             (state_hn, state_cn) = self.cells[0](encoder_inputs[i], (state_hn,state_cn))
             
-            if num_layers-1 >0:
+            if self.num_layers-1 >0:
                 for cell in self.cells[1:]:
                     (state_hn, state_cn) = cell(state_hn, (state_hn,state_cn))
 
@@ -121,7 +121,7 @@ class Seq2Seq_LSTM(BaseModel):
 
             (state_hn, state_cn) = self.cells[0](inp,(state_hn,state_cn))
             
-            if num_layers-1 >0:
+            if self.num_layers-1 >0:
                 for cell in self.cells[1:]:
                     (state_hn, state_cn) = cell(state_hn, (state_hn,state_cn))
             
