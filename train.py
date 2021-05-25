@@ -148,8 +148,10 @@ def main(config):
 
     # Define the optimizer.
     #optimizer = optim.SGD(net.parameters(), lr=config.lr)
+    #print("optimizer= SGD")
     optimizer = optim.Adam(net.parameters(), lr=config.lr)
-
+    print("optimizer= Adam")
+    
     # Training loop.
     global_step = 0
     best_valid_loss = float('inf')
