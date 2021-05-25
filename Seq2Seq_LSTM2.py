@@ -9,6 +9,7 @@ import torch.nn as nn
 from data import AMASSBatch
 from losses import mse
 
+from configuration import CONSTANTS as C
 
 
 class BaseModel(nn.Module):
@@ -77,10 +78,8 @@ class Seq2Seq_LSTM2(BaseModel):
 
         encoder_inputs = batch.poses[:, 0:self.seed_seq_len - 1, :]
         if self.is_test:
-            decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
+            decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]), device=C.DEVICE)
             decoder_inputs[:,0,:] = batch.poses[:,self.seed_seq_len-1, :]
-            if self.use_cuda:
-                decoder_inputs = decoder_inputs.cuda()
         else:
             decoder_inputs  = batch.poses[:, self.seed_seq_len-1:self.seed_seq_len+self.target_seq_len-1, :]
         
@@ -88,17 +87,15 @@ class Seq2Seq_LSTM2(BaseModel):
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state_hn = torch.zeros(batch_size, self.rnn_size)
-        state_cn = torch.zeros(batch_size, self.rnn_size)
+        state_hn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_cn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
 
-        if self.use_cuda:
-            state_hn = state_hn.cuda()
-            state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
             (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn, state_cn))
             state_hn = nn.functional.dropout(state_hn, self.dropout, training=self.training)
+            
             if self.use_cuda:
-                state_hn = state_hn.cuda()
+                state_hn = state_hn.to(device=C.DEVICE)
 
         outputs = []
         prev = None
