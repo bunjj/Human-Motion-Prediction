@@ -53,13 +53,14 @@ class Seq2Seq_LSTM2(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
         self.num_layers = 1
-        self.init_xavier_normal = True
+        self.init_xavier_normal = False
         self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq_LSTM2, self).__init__(config)
         print(vars(self))
 
     def create_model(self):
-        self.cell = nn.LSTMCell(self.input_size, self.rnn_size, bias=False)
+        self.cell1 = nn.LSTMCell(self.input_size, self.rnn_size, bias=False)
+        self.cell2 = nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False)
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
     def forward(self, batch: AMASSBatch):
@@ -88,19 +89,27 @@ class Seq2Seq_LSTM2(BaseModel):
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state_hn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
-        state_cn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_hn1 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_cn1 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+
+        state_hn2 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_cn2 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
 
         if self.init_xavier_normal:
-            torch.nn.init.xavier_normal_(state_hn)
-            torch.nn.init.xavier_normal_(state_cn)
+            torch.nn.init.xavier_normal_(state_hn1)
+            torch.nn.init.xavier_normal_(state_cn1)
+
+            torch.nn.init.xavier_normal_(state_hn2)
+            torch.nn.init.xavier_normal_(state_cn2)
 
         for i in range(self.seed_seq_len - 1):
-            (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn, state_cn))
-            state_hn = nn.functional.dropout(state_hn, self.dropout, training=self.training)
+            (state_hn1, state_cn1) = self.cell1(encoder_inputs[i], (state_hn1, state_cn1))
+            (state_hn2, state_cn2) = self.cell2(state_hn1, (state_hn2, state_cn2))
+
+            state_hn2 = nn.functional.dropout(state_hn2, self.dropout, training=self.training)
             
             if self.use_cuda:
-                state_hn = state_hn.to(device=C.DEVICE)
+                state_hn2 = state_hn2.to(device=C.DEVICE)
 
         outputs = []
         prev = None
@@ -110,9 +119,10 @@ class Seq2Seq_LSTM2(BaseModel):
 
             inp = inp.detach()
 
-            (state_hn, state_cn) = self.cell(inp, (state_hn, state_cn))
+            (state_hn1, state_cn1) = self.cell1(inp, (state_hn1, state_cn1))
+            (state_hn2, state_cn2) = self.cell2(state_hn1, (state_hn2, state_cn2))
 
-            output = inp + self.fc1(nn.functional.dropout(state_hn, self.dropout, training=self.training))
+            output = inp + self.fc1(nn.functional.dropout(state_hn2, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
 
             if loop_function is not None:
