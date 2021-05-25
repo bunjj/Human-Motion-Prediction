@@ -22,6 +22,9 @@ def create_model(config):
     elif config.model == 'seq2seq_lstm':
         from Seq2Seq_LSTM import Seq2Seq_LSTM
         return Seq2Seq_LSTM(config)
+    elif config.model == 'seq2seq_lstm2':
+        from Seq2Seq_LSTM2 import Seq2Seq_LSTM2
+        return Seq2Seq_LSTM2(config)
     else:
         from DummyModel import DummyModel
         return DummyModel(config)

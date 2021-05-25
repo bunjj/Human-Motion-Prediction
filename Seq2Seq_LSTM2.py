@@ -39,7 +39,7 @@ class BaseModel(nn.Module):
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
 
-class Seq2Seq(BaseModel):
+class Seq2Seq_LSTM2(BaseModel):
     """
     This is a  seq2seq model as implemented in https://github.com/enriccorona/human-motion-prediction-pytorch/blob/master/src/seq2seq_model.py .
     """
@@ -51,13 +51,13 @@ class Seq2Seq(BaseModel):
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
-
+        self.num_layers = 1
         self.use_cuda = torch.cuda.is_available()
-        super(Seq2Seq, self).__init__(config)
+        super(Seq2Seq_LSTM2, self).__init__(config)
         print(vars(self))
 
     def create_model(self):
-        self.cell = nn.GRUCell(self.input_size, self.rnn_size)
+        self.cell = nn.LSTMCell(self.input_size, self.rnn_size, bias=False)
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
     def forward(self, batch: AMASSBatch):
@@ -88,15 +88,17 @@ class Seq2Seq(BaseModel):
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state = torch.zeros(batch_size, self.rnn_size)
+        state_hn = torch.zeros(batch_size, self.rnn_size)
+        state_cn = torch.zeros(batch_size, self.rnn_size)
 
         if self.use_cuda:
-            state = state.cuda()
+            state_hn = state_hn.cuda()
+            state_cn = state_cn.cuda()
         for i in range(self.seed_seq_len - 1):
-            state = self.cell(encoder_inputs[i], state)
-            state = nn.functional.dropout(state, self.dropout, training=self.training)
+            (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn, state_cn))
+            state_hn = nn.functional.dropout(state_hn, self.dropout, training=self.training)
             if self.use_cuda:
-                state = state.cuda()
+                state_hn = state_hn.cuda()
 
         outputs = []
         prev = None
@@ -106,9 +108,9 @@ class Seq2Seq(BaseModel):
 
             inp = inp.detach()
 
-            state = self.cell(inp, state)
+            (state_hn, state_cn) = self.cell(inp, (state_hn, state_cn))
 
-            output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
+            output = inp + self.fc1(nn.functional.dropout(state_hn, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
 
             if loop_function is not None:
