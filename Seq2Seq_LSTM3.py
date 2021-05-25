@@ -40,7 +40,7 @@ class BaseModel(nn.Module):
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
 
-class Seq2Seq_LSTM2(BaseModel):
+class Seq2Seq_LSTM3(BaseModel):
     """
     This is a  seq2seq model as implemented in https://github.com/enriccorona/human-motion-prediction-pytorch/blob/master/src/seq2seq_model.py .
     """
@@ -52,10 +52,10 @@ class Seq2Seq_LSTM2(BaseModel):
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
-        self.num_layers = 2
+        self.num_layers = 3
         self.init_xavier_normal = False
         self.use_cuda = torch.cuda.is_available()
-        super(Seq2Seq_LSTM2, self).__init__(config)
+        super(Seq2Seq_LSTM3, self).__init__(config)
         print(vars(self))
 
     def create_model(self):
@@ -96,6 +96,9 @@ class Seq2Seq_LSTM2(BaseModel):
         state_hn2 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
         state_cn2 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
 
+        state_hn3 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_cn3 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+
         if self.init_xavier_normal:
             torch.nn.init.xavier_normal_(state_hn1)
             torch.nn.init.xavier_normal_(state_cn1)
@@ -103,14 +106,18 @@ class Seq2Seq_LSTM2(BaseModel):
             torch.nn.init.xavier_normal_(state_hn2)
             torch.nn.init.xavier_normal_(state_cn2)
 
+            torch.nn.init.xavier_normal_(state_hn3)
+            torch.nn.init.xavier_normal_(state_cn3)
+
         for i in range(self.seed_seq_len - 1):
             (state_hn1, state_cn1) = self.cell1(encoder_inputs[i], (state_hn1, state_cn1))
             (state_hn2, state_cn2) = self.cell2(state_hn1, (state_hn2, state_cn2))
+            (state_hn3, state_cn3) = self.cell3(state_hn2, (state_hn3, state_cn3))
 
-            state_hn2 = nn.functional.dropout(state_hn2, self.dropout, training=self.training)
+            state_hn3 = nn.functional.dropout(state_hn3, self.dropout, training=self.training)
             
             if self.use_cuda:
-                state_hn2 = state_hn2.to(device=C.DEVICE)
+                state_hn3 = state_hn3.to(device=C.DEVICE)
 
         outputs = []
         prev = None
@@ -122,8 +129,9 @@ class Seq2Seq_LSTM2(BaseModel):
 
             (state_hn1, state_cn1) = self.cell1(inp, (state_hn1, state_cn1))
             (state_hn2, state_cn2) = self.cell2(state_hn1, (state_hn2, state_cn2))
+            (state_hn3, state_cn3) = self.cell3(state_hn2, (state_hn3, state_cn3))
 
-            output = inp + self.fc1(nn.functional.dropout(state_hn2, self.dropout, training=self.training))
+            output = inp + self.fc1(nn.functional.dropout(state_hn3, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
 
             if loop_function is not None:
