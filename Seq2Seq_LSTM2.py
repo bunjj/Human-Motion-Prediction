@@ -52,7 +52,7 @@ class Seq2Seq_LSTM2(BaseModel):
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
-        self.num_layers = 1
+        self.num_layers = 2
         self.init_xavier_normal = False
         self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq_LSTM2, self).__init__(config)
