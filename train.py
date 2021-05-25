@@ -147,10 +147,10 @@ def main(config):
     writer = SummaryWriter(os.path.join(model_dir, 'logs'))
 
     # Define the optimizer.
-    #optimizer = optim.SGD(net.parameters(), lr=config.lr)
-    #print("optimizer= SGD")
-    optimizer = optim.Adam(net.parameters(), lr=config.lr)
-    print("optimizer= Adam")
+    optimizer = optim.SGD(net.parameters(), lr=config.lr)
+    print("optimizer= SGD")
+    #optimizer = optim.Adam(net.parameters(), lr=config.lr)
+    #print("optimizer= Adam")
     
     # Training loop.
     global_step = 0
