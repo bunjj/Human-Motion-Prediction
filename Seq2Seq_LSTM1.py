@@ -8,8 +8,8 @@ import torch.nn as nn
 
 from data import AMASSBatch
 from losses import mse
-from configuration import CONSTANTS as C
 
+from configuration import CONSTANTS as C
 
 
 class BaseModel(nn.Module):
@@ -40,9 +40,9 @@ class BaseModel(nn.Module):
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
 
-class Seq2Seq(BaseModel):
+class Seq2Seq_LSTM1(BaseModel):
     """
-    This is a dummy model. It provides basic implementations to demonstrate how more advanced models can be built.
+    This is a  seq2seq model as implemented in https://github.com/enriccorona/human-motion-prediction-pytorch/blob/master/src/seq2seq_model.py .
     """
 
     def __init__(self, config):
@@ -52,18 +52,17 @@ class Seq2Seq(BaseModel):
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
+        self.num_layers = 1
+        self.init_xavier_normal = False
+        self.use_cuda = torch.cuda.is_available()
+        super(Seq2Seq_LSTM1, self).__init__(config)
+        print(vars(self))
 
-        super(Seq2Seq, self).__init__(config)
-
-    # noinspection PyAttributeOutsideInit
     def create_model(self):
-        # In this model we simply feed the last time steps of the seed to a dense layer and
-        # predict the targets directly.
-        self.cell = nn.GRUCell(self.input_size, self.rnn_size)
-
+        self.cell1 = nn.LSTMCell(self.input_size, self.rnn_size, bias=False)
+        self.cell2 = nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False)
+        self.cell3 = nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False)
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
-        # self.dense = nn.Linear(in_features=self.n_history * self.pose_size,
-        #                        out_features=self.config.target_seq_len * self.pose_size)
 
     def forward(self, batch: AMASSBatch):
         """
@@ -81,26 +80,30 @@ class Seq2Seq(BaseModel):
         ######################
 
         encoder_inputs = batch.poses[:, 0:self.seed_seq_len - 1, :]
-        if not self.training:
-            decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
+        if self.is_test:
+            decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]), device=C.DEVICE)
             decoder_inputs[:,0,:] = batch.poses[:,self.seed_seq_len-1, :]
-            decoder_inputs = decoder_inputs.to(C.DEVICE)
         else:
             decoder_inputs  = batch.poses[:, self.seed_seq_len-1:self.seed_seq_len+self.target_seq_len-1, :]
-
-
-
+        
+        
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state = torch.zeros(batch_size, self.rnn_size)
+        state_hn1 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_cn1 = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
 
-        state  = state.to(C.DEVICE)
+        if self.init_xavier_normal:
+            torch.nn.init.xavier_normal_(state_hn1)
+            torch.nn.init.xavier_normal_(state_cn1)
+
         for i in range(self.seed_seq_len - 1):
-            state = self.cell(encoder_inputs[i], state)
-            state = nn.functional.dropout(state, self.dropout, training=self.training)
-            state = state.to(C.DEVICE)
+            (state_hn1, state_cn1) = self.cell1(encoder_inputs[i], (state_hn1, state_cn1))
 
+            state_hn1 = nn.functional.dropout(state_hn1, self.dropout, training=self.training)
+            
+            if self.use_cuda:
+                state_hn1 = state_hn1.to(device=C.DEVICE)
 
         outputs = []
         prev = None
@@ -110,9 +113,9 @@ class Seq2Seq(BaseModel):
 
             inp = inp.detach()
 
-            state = self.cell(inp, state)
+            (state_hn1, state_cn1) = self.cell1(inp, (state_hn1, state_cn1))
 
-            output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
+            output = inp + self.fc1(nn.functional.dropout(state_hn1, self.dropout, training=self.training))
             outputs.append(output.view([1, batch_size, self.input_size]))
 
             if loop_function is not None:
@@ -122,13 +125,6 @@ class Seq2Seq(BaseModel):
         outputs = torch.transpose(outputs, 0, 1)
         model_out['predictions'] = outputs
 
-        ##############################################
-        #previous shizzle
-        ##################3
-        # model_in = batch.poses[:, self.config.seed_seq_len-self.n_history:self.config.seed_seq_len]
-        # pred = self.dense(model_in.reshape(batch_size, -1))
-        # model_out['predictions'] = pred.reshape(batch_size, self.config.target_seq_len, -1)
-        ########################################
         return model_out
 
     def backward(self, batch: AMASSBatch, model_out):
