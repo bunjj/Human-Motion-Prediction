@@ -53,6 +53,7 @@ class Seq2Seq_LSTM2(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
         self.num_layers = 1
+        self.init_xavier_normal = True
         self.use_cuda = torch.cuda.is_available()
         super(Seq2Seq_LSTM2, self).__init__(config)
         print(vars(self))
@@ -89,6 +90,10 @@ class Seq2Seq_LSTM2(BaseModel):
 
         state_hn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
         state_cn = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+
+        if self.init_xavier_normal:
+            torch.nn.init.xavier_normal_(state_hn)
+            torch.nn.init.xavier_normal_(state_cn)
 
         for i in range(self.seed_seq_len - 1):
             (state_hn, state_cn) = self.cell(encoder_inputs[i], (state_hn, state_cn))
