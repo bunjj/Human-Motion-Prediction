@@ -40,31 +40,32 @@ class BaseModel(nn.Module):
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
 
-class SPL(BaseModel):
+class RNN(BaseModel):
     """
-    This models the implementation of SPL as described in
+    This models the implementation of RNN as described in
     https://ait.ethz.ch/projects/2019/spl/
     """
 
     def __init__(self, config):
-        self.n_history = 10
         self.rnn_size = 1024
-        self.dropout = 0
+        self.dropout = 0.1
+        self.spl_size = 128
+        self.linear_size = 256
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
-        self.input_size = config.pose_size
+        self.pose_size = config.pose_size
 
-        super(SPL, self).__init__(config)
+        super(RNN, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
-        # In this model we simply feed the last time steps of the seed to a dense layer and
-        # predict the targets directly.
-        self.cell = nn.LSTMCell(self.input_size, self.rnn_size)
+        self.linear = nn.Linear(self.pose_size, self.linear_size)
+        self.cell = nn.LSTMCell(self.linear_size, self.rnn_size)
 
-        self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
-        # self.dense = nn.Linear(in_features=self.n_history * self.pose_size,
-        #                        out_features=self.config.target_seq_len * self.pose_size)
+        #This part corresponds to the SPL layer for the vanilla RNN model
+        self.linear_r1 = nn.Linear(self.rnn_size, 960)
+        self.relu = nn.ReLU()
+        self.linear_r2 = nn.Linear(960, self.pose_size)
 
     def forward(self, batch: AMASSBatch):
         """
@@ -94,30 +95,33 @@ class SPL(BaseModel):
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        state = torch.zeros(batch_size, self.rnn_size)
-        state_c = torch.zeros(batch_size, self.rnn_size)
-        state  = state.to(C.DEVICE)
+        state_h = torch.zeros(batch_size, self.rnn_size, device= C.DEVICE)
+        state_c = torch.zeros(batch_size, self.rnn_size, device = C.DEVICE)
         for i in range(self.seed_seq_len - 1):
-            state,state_c = self.cell(encoder_inputs[i], (state,state_c))
-            state = nn.functional.dropout(state, self.dropout, training=self.training)
+            state = encoder_inputs[i]
+            state = self.linear(nn.functional.dropout(state, self.dropout, training = self.training))
+            state_h ,state_c = self.cell(state, (state_h,state_c))
+            state = self.linear_r1(state_h)
+            state = self.relu(state)
+            state = self.linear_r2(state)
+            state = state + encoder_inputs[i]
             state = state.to(C.DEVICE)
 
 
         outputs = []
         prev = None
         for i, inp in enumerate(decoder_inputs):
-            if loop_function is not None and prev is not None:
-                inp = loop_function(prev, i)
+            if self.training:
+                state = decoder_inputs[i]
+            state = self.linear(nn.functional.dropout(state, self.dropout, training=self.training))
+            state_h, state_c = self.cell(state, (state_h, state_c))
+            state = self.linear_r1(state_h)
+            state = self.relu(state)
+            state = self.linear_r2(state)
+            state = state + decoder_inputs[i]
+            #state = state.to(C.DEVICE)
+            outputs.append(state.view([1,batch_size, self.pose_size]))
 
-            inp = inp.detach()
-
-            state,state_c = self.cell(inp, (state, state_c))
-
-            output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
-            outputs.append(output.view([1, batch_size, self.input_size]))
-
-            if loop_function is not None:
-                prev = output
 
         outputs = torch.cat(outputs, 0)
         outputs = torch.transpose(outputs, 0, 1)

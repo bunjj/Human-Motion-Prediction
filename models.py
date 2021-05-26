@@ -31,6 +31,9 @@ def create_model(config):
     elif config.model == 'seq2seq_ib':
         from Seq2Seq_ib import Seq2Seq
         return Seq2Seq(config)
+    elif config.model == "rnn":
+        from RNN import RNN
+        return RNN(config)
     else:
         from DummyModel import DummyModel
         return DummyModel(config)
