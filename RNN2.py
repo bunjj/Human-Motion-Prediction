@@ -80,19 +80,9 @@ class RNN2(BaseModel):
                      'predictions': None}
 
         batch_size = batch.batch_size
-        
-        if self.is_test:
-            prediction_inputs = batch.poses[:, :-1, :]
-        else:
-            prediction_inputs = batch.poses[:, :-1, :]
-            
+
+        prediction_inputs = batch.poses
         prediction_inputs = torch.transpose(prediction_inputs, 0, 1)
-
-        prediction_targets = batch.poses[:, 1:, :]
-        prediction_targets = torch.transpose(prediction_targets, 0, 1)
-
-        #print(prediction_inputs.shape)
-        #print(prediction_targets.shape)
 
         state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
         state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
@@ -102,21 +92,20 @@ class RNN2(BaseModel):
         prev = None 
         
         for i in range((self.seed_seq_len + self.target_seq_len-1)):
+            
             if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
-                inp = loop_function(prev, i)
-                #inp = inp.detach()
+                inp = prev
+                inp = inp.detach()
                 
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
-            
             (state_h, state_c) = self.cell(state, (state_h, state_c))
 
             state = self.linear_pred_1(state_h)
             state = self.relu(state)
             state = self.linear_pred_2(state)
             output = inp + state
-            #output = output.to(C.DEVICE)
 
             all_outputs.append(output.view([1, batch_size, self.pose_size]))
             if i >= (self.seed_seq_len-1):
@@ -130,8 +119,7 @@ class RNN2(BaseModel):
 
         all_outputs = torch.cat(all_outputs,0)
         all_outputs = torch.transpose(all_outputs, 0,1)
-        #print(outputs.shape)
-        #print(all_outputs.shape)
+
         model_out['predictions'] = outputs
         model_out['training_predictions'] = all_outputs
 
