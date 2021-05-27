@@ -99,8 +99,7 @@ class RNN2(BaseModel):
         outputs = []
         prev = None 
         for i in range(max_frame - 1):
-            not_test = i < self.seed_seq_len or self.training
-            if not_test:
+            if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
                 inp = loop_function(prev, i)
@@ -110,7 +109,7 @@ class RNN2(BaseModel):
             state = self.linear(state)
             
             (state_h, state_c) = self.cell(state, (state_h, state_c))
-            
+
             state = self.linear_pred_1(state_h)
             state = self.relu(state)
             state = self.linear_pred_2(state)
@@ -118,7 +117,7 @@ class RNN2(BaseModel):
             #output = output.to(C.DEVICE)
 
             all_outputs.append(output.view([1, batch_size, self.pose_size]))
-            if not not_test:
+            if i >= self.seed_seq_len:
                 outputs.append(output.view([1, batch_size, self.pose_size]))
 
             prev = output
