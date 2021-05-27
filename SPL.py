@@ -7,9 +7,9 @@ import torch
 import torch.nn as nn
 
 from data import AMASSBatch
-from losses import *
+from losses import mse
 from configuration import CONSTANTS as C
-import numpy as np
+
 
 
 class BaseModel(nn.Module):
@@ -40,7 +40,7 @@ class BaseModel(nn.Module):
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
 
-class RNN(BaseModel):
+class SPL(BaseModel):
     """
     This models the implementation of RNN as described in
     https://ait.ethz.ch/projects/2019/spl/
@@ -55,14 +55,14 @@ class RNN(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.pose_size = config.pose_size
 
-        super(RNN, self).__init__(config)
+        super(SPL, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
         self.linear = nn.Linear(self.pose_size, self.linear_size)
         self.cell = nn.LSTMCell(self.linear_size, self.rnn_size)
 
-        # This part corresponds to the SPL layer for the vanilla RNN model
+        #This part corresponds to the SPL layer for the vanilla RNN model
         self.linear_r1 = nn.Linear(self.rnn_size, 960)
         self.relu = nn.ReLU()
         self.linear_r2 = nn.Linear(960, self.pose_size)
@@ -75,7 +75,6 @@ class RNN(BaseModel):
         """
         model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
                      'predictions': None}
-
         def loop_function(prev, i):
             return prev
 
@@ -83,35 +82,35 @@ class RNN(BaseModel):
 
         ######################
 
-        encoder_inputs = batch.poses[:, 0:self.seed_seq_len, :]
+        encoder_inputs = batch.poses[:, 0:self.seed_seq_len - 1, :]
         if not self.training:
             decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
+            decoder_inputs[:,0,:] = batch.poses[:,self.seed_seq_len-1, :]
             decoder_inputs = decoder_inputs.to(C.DEVICE)
         else:
-            decoder_inputs = batch.poses[:, self.seed_seq_len :, :]
+            decoder_inputs  = batch.poses[:, self.seed_seq_len-1:self.seed_seq_len+self.target_seq_len-1, :]
+
+
 
         encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
         decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
 
-        all_outputs = []
-        state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
-        state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
-        for i in range(self.seed_seq_len):
+        state_h = torch.zeros(batch_size, self.rnn_size, device= C.DEVICE)
+        state_c = torch.zeros(batch_size, self.rnn_size, device = C.DEVICE)
+        for i in range(self.seed_seq_len - 1):
             state = encoder_inputs[i]
-            state = self.linear(nn.functional.dropout(state, self.dropout, training=self.training))
-            state_h, state_c = self.cell(state, (state_h, state_c))
+            state = self.linear(nn.functional.dropout(state, self.dropout, training = self.training))
+            state_h ,state_c = self.cell(state, (state_h,state_c))
             state = self.linear_r1(state_h)
             state = self.relu(state)
             state = self.linear_r2(state)
             state = state + encoder_inputs[i]
             state = state.to(C.DEVICE)
-            all_outputs.append(state.view([1, batch_size, self.pose_size]))
+
 
         outputs = []
-        outputs.append(state.view([1, batch_size, self.pose_size]))
-
         prev = None
-        for i, inp in enumerate(decoder_inputs[:self.target_seq_len-1]):
+        for i, inp in enumerate(decoder_inputs):
             if self.training:
                 state = decoder_inputs[i]
             state = self.linear(nn.functional.dropout(state, self.dropout, training=self.training))
@@ -120,18 +119,16 @@ class RNN(BaseModel):
             state = self.relu(state)
             state = self.linear_r2(state)
             state = state + decoder_inputs[i]
-            # state = state.to(C.DEVICE)
-            outputs.append(state.view([1, batch_size, self.pose_size]))
-            all_outputs.append(state.view([1, batch_size, self.pose_size]))
+            #state = state.to(C.DEVICE)
+            outputs.append(state.view([1,batch_size, self.pose_size]))
+
 
         outputs = torch.cat(outputs, 0)
         outputs = torch.transpose(outputs, 0, 1)
-        all_outputs = torch.cat(all_outputs,0)
-        all_outputs = torch.transpose(all_outputs, 0,1)
         model_out['predictions'] = outputs
-        model_out['training_pred'] = all_outputs
+
         ##############################################
-        # previous shizzle
+        #previous shizzle
         ##################3
         # model_in = batch.poses[:, self.config.seed_seq_len-self.n_history:self.config.seed_seq_len]
         # pred = self.dense(model_in.reshape(batch_size, -1))
@@ -149,13 +146,7 @@ class RNN(BaseModel):
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
 
-        all_predictions = model_out['training_pred']
-        all_targets = batch.poses[:, 1:]
-        # print('prediction shape:' + str(predictions[0].shape))
-        # print('targets shape:' + str(targets[0].shape))
-        # print('preall_prediction shape:' +  str(all_predictions[0].shape))
-        # print('all_targets shape:' + str(all_targets[0].shape))
-        total_loss = mse(all_predictions, all_targets)
+        total_loss = mse(predictions, targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}

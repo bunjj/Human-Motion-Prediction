@@ -34,6 +34,9 @@ def create_model(config):
     elif config.model == "rnn":
         from RNN import RNN
         return RNN(config)
+    elif config.model == "spl":
+        from SPL import SPL
+        return SPL(config)
     else:
         from DummyModel import DummyModel
         return DummyModel(config)
