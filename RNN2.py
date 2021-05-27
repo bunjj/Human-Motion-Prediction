@@ -81,7 +81,11 @@ class RNN2(BaseModel):
 
         batch_size = batch.batch_size
         
-        prediction_inputs = batch.poses[:, :-1, :]
+        if self.is_test:
+            prediction_inputs = batch.poses[:, :-1, :]
+        else:
+            prediction_inputs = batch.poses[:, :-1, :]
+            
         prediction_inputs = torch.transpose(prediction_inputs, 0, 1)
 
         prediction_targets = batch.poses[:, 1:, :]
