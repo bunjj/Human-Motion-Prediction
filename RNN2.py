@@ -97,11 +97,10 @@ class RNN2(BaseModel):
         outputs = []
         prev = None 
         
-        for i in range(prediction_inputs.shape[0]):
+        for i in range(self.seed_seq_len + self.target_seq_len):
             if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
-                print(f" iteration {i} in test case")
                 inp = loop_function(prev, i)
                 #inp = inp.detach()
                 
