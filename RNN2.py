@@ -87,17 +87,17 @@ class RNN2(BaseModel):
         prediction_targets = batch.poses[:, 1:, :]
         prediction_targets = torch.transpose(prediction_targets, 0, 1)
 
+        print(prediction_inputs.shape)
+        print(prediction_targets.shape)
+
         state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
         state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
-
-        max_frame = self.seed_seq_len + self.target_seq_len
-        if self.training:
-            assert  (max_frame - 1) == prediction_inputs.shape[0]
 
         all_outputs = []
         outputs = []
         prev = None 
-        for i in range(max_frame - 1):
+        
+        for i in range(prediction_inputs.shape[0]):
             if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
@@ -115,7 +115,7 @@ class RNN2(BaseModel):
             #output = output.to(C.DEVICE)
 
             all_outputs.append(output.view([1, batch_size, self.pose_size]))
-            if i >= self.seed_seq_len:
+            if i >= (self.seed_seq_len-1):
                 outputs.append(output.view([1, batch_size, self.pose_size]))
 
             prev = output
@@ -142,11 +142,15 @@ class RNN2(BaseModel):
         """
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
-
+        print("predictions " + str(predictions.shape))
+        print("targets " + str(targets.shape))
         #total_loss = mse(predictions, targets)
 
         all_predictions = model_out['training_predictions']
         all_targets = batch.poses[:, 1:]
+        print("all_predictions " + str(all_predictions.shape))
+        print("all_targets " + str(all_targets.shape))
+
         total_loss = mse(all_predictions, all_targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
