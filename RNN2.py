@@ -87,8 +87,8 @@ class RNN2(BaseModel):
         prediction_targets = batch.poses[:, 1:, :]
         prediction_targets = torch.transpose(prediction_targets, 0, 1)
 
-        print(prediction_inputs.shape)
-        print(prediction_targets.shape)
+        #print(prediction_inputs.shape)
+        #print(prediction_targets.shape)
 
         state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
         state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
@@ -101,6 +101,7 @@ class RNN2(BaseModel):
             if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
+                print(f" iteration {i} in test case")
                 inp = loop_function(prev, i)
                 #inp = inp.detach()
                 
@@ -126,8 +127,8 @@ class RNN2(BaseModel):
 
         all_outputs = torch.cat(all_outputs,0)
         all_outputs = torch.transpose(all_outputs, 0,1)
-        print(outputs.shape)
-        print(all_outputs.shape)
+        #print(outputs.shape)
+        #print(all_outputs.shape)
         model_out['predictions'] = outputs
         model_out['training_predictions'] = all_outputs
 
@@ -142,14 +143,14 @@ class RNN2(BaseModel):
         """
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
-        print("predictions " + str(predictions.shape))
-        print("targets " + str(targets.shape))
+        #print("predictions " + str(predictions.shape))
+        #print("targets " + str(targets.shape))
         #total_loss = mse(predictions, targets)
 
         all_predictions = model_out['training_predictions']
         all_targets = batch.poses[:, 1:]
-        print("all_predictions " + str(all_predictions.shape))
-        print("all_targets " + str(all_targets.shape))
+        #print("all_predictions " + str(all_predictions.shape))
+        #print("all_targets " + str(all_targets.shape))
 
         total_loss = mse(all_predictions, all_targets)
 
