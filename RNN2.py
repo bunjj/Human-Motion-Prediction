@@ -146,7 +146,7 @@ class RNN2(BaseModel):
 
         #total_loss = mse(predictions, targets)
 
-        all_predictions = model_out['training_pred']
+        all_predictions = model_out['training_predictions']
         all_targets = batch.poses[:, 1:]
         total_loss = mse(all_predictions, all_targets)
 
