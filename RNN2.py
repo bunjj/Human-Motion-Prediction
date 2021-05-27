@@ -59,7 +59,6 @@ class RNN2(BaseModel):
     # noinspection PyAttributeOutsideInit
     def create_model(self):
 
-        self.dropout_layer = nn.Dropout(p=self.dropout)
         self.linear = nn.Linear(in_features=self.pose_size, out_features=self.linear_size)
         self.cell = nn.LSTMCell(input_size=self.linear_size, hidden_size=self.rnn_size)
         self.linear_pred_1 = nn.Linear(in_features=self.rnn_size, out_features=960)
@@ -105,8 +104,7 @@ class RNN2(BaseModel):
                 inp = loop_function(prev, i)
                 inp = inp.detach()
                 
-            state = self.dropout_layer(inp)
-            state = self.linear(state)
+            state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
             
             (state_h, state_c) = self.cell(state, (state_h, state_c))
 
