@@ -97,7 +97,7 @@ class RNN2(BaseModel):
         outputs = []
         prev = None 
         
-        for i in range(self.seed_seq_len + self.target_seq_len):
+        for i in range((self.seed_seq_len + self.target_seq_len-1)):
             if i < self.seed_seq_len or self.training:
                 inp = prediction_inputs[i]
             else:
