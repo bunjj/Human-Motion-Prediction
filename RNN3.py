@@ -98,8 +98,8 @@ class RNN3(BaseModel):
         state = self.linear_pred_2(state)
         print(state.shape)
         output = prediction_inputs + state
+        print(output.shape)
 
-        raise ValueError("fghjk")
         all_outputs = []
         outputs = []
         prev = None 
@@ -111,15 +111,18 @@ class RNN3(BaseModel):
             else:
                 inp = prev
                 inp = inp.detach()
-                
+            
+            print(inp.shape)
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
             (state_h, state_c) = self.cell(state, (state_h, state_c))
-
+            print(state_h.shape)
             state = self.linear_pred_1(state_h)
             state = self.relu(state)
             state = self.linear_pred_2(state)
+            print(state.shape)
             output = inp + state
-
+            print(output.shape)
+            raise ValueError("fghjk")
             all_outputs.append(output.view([1, batch_size, self.pose_size]))
             if i >= (self.seed_seq_len-1):
                 outputs.append(output.view([1, batch_size, self.pose_size]))
