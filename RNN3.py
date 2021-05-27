@@ -7,9 +7,9 @@ import torch
 import torch.nn as nn
 
 from data import AMASSBatch
-from losses import mse
+from losses import *
 from configuration import CONSTANTS as C
-
+import numpy as np
 
 
 class BaseModel(nn.Module):
@@ -39,8 +39,7 @@ class BaseModel(nn.Module):
         """A summary string of this model. Override this if desired."""
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
-
-class SPL(BaseModel):
+class RNN3(BaseModel):
     """
     This models the implementation of RNN as described in
     https://ait.ethz.ch/projects/2019/spl/
@@ -55,13 +54,17 @@ class SPL(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.pose_size = config.pose_size
 
-        super(SPL, self).__init__(config)
+        super(RNN3, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
 
         self.linear = nn.Linear(in_features=self.pose_size, out_features=self.linear_size)
-        self.cell = nn.LSTMCell(input_size=self.linear_size, hidden_size=self.rnn_size)
+        self.cell = nn.LSTM(input_size=self.linear_size, 
+                            hidden_size=self.rnn_size, 
+                            bias=False,
+                            dropout=0,
+                            )
         self.linear_pred_1 = nn.Linear(in_features=self.rnn_size, out_features=960)
         self.relu = nn.ReLU()
         self.linear_pred_2 = nn.Linear(in_features=960, out_features=self.pose_size)
@@ -74,8 +77,6 @@ class SPL(BaseModel):
         :param batch: Current batch of data.
         :return: Each forward pass must return a dictionary with keys {'seed', 'predictions'}.
         """
-        def loop_function(prev, i):
-            return prev
 
         model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
                      'predictions': None}
@@ -85,9 +86,20 @@ class SPL(BaseModel):
         prediction_inputs = batch.poses
         prediction_inputs = torch.transpose(prediction_inputs, 0, 1)
 
-        state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
-        state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_h = torch.zeros(1, batch_size, self.rnn_size, device=C.DEVICE)
+        state_c = torch.zeros(1, batch_size, self.rnn_size, device=C.DEVICE)
 
+        print(prediction_inputs.shape)
+        state = self.linear(nn.functional.dropout(prediction_inputs, self.dropout, training=self.training))
+        _, (state_h, state_c) = self.cell(state, (state_h, state_c))
+        print(state_h.shape)
+        state = self.linear_pred_1(state_h)
+        state = self.relu(state)
+        state = self.linear_pred_2(state)
+        print(state.shape)
+        output = prediction_inputs + state
+
+        raise ValueError("fghjk")
         all_outputs = []
         outputs = []
         prev = None 
@@ -155,4 +167,3 @@ class SPL(BaseModel):
             total_loss.backward()
 
         return loss_vals, targets
-
