@@ -102,7 +102,7 @@ class RNN2(BaseModel):
                 inp = prediction_inputs[i]
             else:
                 inp = loop_function(prev, i)
-                inp = inp.detach()
+                #inp = inp.detach()
                 
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
             
@@ -126,7 +126,8 @@ class RNN2(BaseModel):
 
         all_outputs = torch.cat(all_outputs,0)
         all_outputs = torch.transpose(all_outputs, 0,1)
-
+        print(outputs.shape)
+        print(all_outputs.shape)
         model_out['predictions'] = outputs
         model_out['training_predictions'] = all_outputs
 
