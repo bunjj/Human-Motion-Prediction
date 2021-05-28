@@ -71,7 +71,7 @@ class Configuration(object):
 
         # Learning configurations.
         parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
-        parser.add_argument('--use_lr_decay', type=float, default=False, help='Learning rate decay rate.')
+        parser.add_argument('--use_lr_decay', type=bool, default=False, help='Learning rate decay rate.')
         parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')
         parser.add_argument('--lr_decay_step', type=float, default=5, help='Learning rate decay step.')
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
