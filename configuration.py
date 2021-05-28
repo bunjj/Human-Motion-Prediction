@@ -70,6 +70,7 @@ class Configuration(object):
         parser.add_argument('--target_seq_len', type=int, default=24, help='How many frames to predict.')
 
         # Learning configurations.
+        parser.add_argument('--opt', type=str, choices={"adam", "sgd"}, default="sgd", help='Type of optimizer')
         parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
         parser.add_argument('--use_lr_decay', type=bool, default=False, help='Learning rate decay rate.')
         parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')
