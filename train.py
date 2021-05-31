@@ -147,7 +147,7 @@ def main(config):
     writer = SummaryWriter(os.path.join(model_dir, 'logs'))
 
     # Define the optimizer.
-    if config.optimizer == "adam":
+    if config.opt == "adam":
         optimizer = optim.Adam(net.parameters(), lr=config.lr)
         print("optimizer= Adam")
     else:
