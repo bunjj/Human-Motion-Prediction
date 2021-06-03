@@ -1,6 +1,13 @@
 __pycache__/
 .run/
 .idea/
+.vscode
+
+# data folders
+data/
+test/
 training/
 validation/
+experiments/
+
 .run/
