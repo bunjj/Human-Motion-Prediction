@@ -155,6 +155,7 @@ def main(config):
         print("optimizer= SGD")
         
     if config.use_lr_decay:
+        print("using LR decay")
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                     step_size=config.lr_decay_step,
                                                     gamma=config.lr_decay_rate,
@@ -185,7 +186,7 @@ def main(config):
 
             if config.use_lr_decay:
                 scheduler.step()
-
+            #print(optimizer.param_groups[0]["lr"])
             elapsed = time.time() - start
 
             # Write training stats to Tensorboard.
