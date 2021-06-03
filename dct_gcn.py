@@ -57,22 +57,22 @@ class DCT_GCN(BaseModel):
         self.target_seq_len = config.target_seq_len
         self.input_size = config.pose_size
 
-        # TODO: outograd variables necessary? Mao uses float?!
+        # Compute DCT matrices once
         dct_mat, idct_mat = get_dct_matrix(self.seed_seq_len + self.target_seq_len)
-        self.dct_mat = Variable(torch.from_numpy(dct_mat)).float()#.cuda()
-        self.idct_mat = Variable(torch.from_numpy(idct_mat)).float()#.cuda()
+        self.dct_mat = Variable(torch.from_numpy(dct_mat)).float().to(C.DEVICE)
+        self.idct_mat = Variable(torch.from_numpy(idct_mat)).float().to(C.DEVICE)
 
-
-        self.n_dct_freq = 10 # number of dct frequencies
+        # number of dct frequencies
+        self.n_dct_freq = 144
 
         super(DCT_GCN, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
         self.gcn = GCN(input_feature=self.n_dct_freq,
-                        hidden_feature=256,
-                        p_dropout=0,
-                        num_stage=1,
+                        hidden_feature=256, # Mao19 default param
+                        p_dropout=0.5,      # Mao19 default param
+                        num_stage=12,       # Mao19 default param
                         node_n=self.input_size) # N_JOINTS * DOF
 
     def forward(self, batch: AMASSBatch):
@@ -105,10 +105,6 @@ class DCT_GCN(BaseModel):
         ######################
 
         # predict batchwise
-        output_dct = torch.zeros(batch_size, self.n_dct_freq, self.input_size)
-        #for i in np.arange(batch_size):  
-        #    pred = self.gcn(input_dct[i,:,:].transpose(0,1))
-        #    output_dct[i,:,:] = pred.transpose(0,1)
         pred = self.gcn(input_dct.transpose(1,2))
         output_dct = pred.transpose(1,2)
         # => (batchsize, self.n_dct_freq, N_JOINT * DOF)
@@ -124,7 +120,10 @@ class DCT_GCN(BaseModel):
         # store predictions back
         # TODO: Mao computes MSE over entire sequence,
         #       but template assumes predictions to be of length 24?
-        model_out['predictions'] = output_series #output_series[:,self.config.seed_seq_len:,:]
+        if self.training:
+            model_out['predictions'] = output_series
+        else:
+            model_out['predictions'] = output_series[:, self.config.seed_seq_len:, :]
 
         return model_out
 
@@ -136,7 +135,11 @@ class DCT_GCN(BaseModel):
         :return: The loss values for book-keeping, as well as the targets for convenience.
         """
         predictions = model_out['predictions']
-        targets = batch.poses #batch.poses[:, self.config.seed_seq_len:]
+
+        if self.training:
+            targets = batch.poses
+        else:
+            targets = batch.poses[:, self.config.seed_seq_len:, :]
 
         total_loss = mse(predictions, targets)
 
