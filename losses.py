@@ -3,7 +3,7 @@ Some loss functions.
 
 Copyright ETH Zurich, Manuel Kaufmann
 """
-
+import torch
 
 def mse(predictions, targets):
     """
@@ -48,3 +48,10 @@ def loss_pose_joint_sum(predictions, targets, n_frames=144):
     per_joint_loss = per_joint_loss.sum(dim=-1)
     
     return per_joint_loss.mean()
+
+def avg_l1(predictions, targets):
+    """ 
+    The average l1 loss from:
+    https://github.com/wei-mao-2019/LearnTrajDep/blob/master/utils/loss_funcs.py#L7
+    """
+    loss = torch.mean(torch.sum(torch.abs(predictions - targets), dim=2).view(-1))
