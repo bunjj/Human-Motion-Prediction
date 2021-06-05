@@ -103,13 +103,14 @@ class MetricsEngine(object):
     Compute and aggregate various motion metrics. It keeps track of the metric values per frame, so that we can
     evaluate them for different sequence lengths. It assumes that inputs are in rotation matrix format.
     """
-    def __init__(self, target_lengths):
+    def __init__(self, target_lengths, repr='rotmat'):
         """
         Initializer.
         Args:
             target_lengths: List of target sequence lengths that should be evaluated.
         """
         self.target_lengths = target_lengths
+        self.repr = repr
         self.all_summaries_op = None
         self.n_samples = 0
         self._should_call_reset = False  # a guard to avoid stupid mistakes
@@ -124,7 +125,7 @@ class MetricsEngine(object):
         self.n_samples = 0
         self._should_call_reset = False  # now it's again safe to compute new values
 
-    def compute(self, predictions, targets, reduce_fn="mean", repr="rotmat"):
+    def compute(self, predictions, targets, reduce_fn="mean"):
         """
         Compute the joint angle metric. Predictions and targets are assumed to be in rotation matrix format.
         Args:
@@ -137,12 +138,12 @@ class MetricsEngine(object):
             of shape (n, seq_length).
         """
 
-        if repr == "axangle":
+        if self.repr == "axangle":
             predictions = axangle2rotmat(predictions)
             targets = axangle2rotmat(targets)
 
-        elif repr != "rotmat":
-            raise ValueError(f"Unkown representation: {repr}")
+        elif self.repr != "rotmat":
+            raise ValueError(f"Unkown representation: {self.repr}")
 
         assert predictions.shape[-1] % 9 == 0, "predictions are not rotation matrices"
         assert targets.shape[-1] % 9 == 0, "targets are not rotation matrices"
@@ -215,7 +216,7 @@ class MetricsEngine(object):
         batch_size = new_metrics[list(new_metrics.keys())[0]].shape[0]
         self.n_samples += batch_size
 
-    def compute_and_aggregate(self, predictions, targets, reduce_fn="mean", repr="rotmat"):
+    def compute_and_aggregate(self, predictions, targets, reduce_fn="mean"):
         """
         Computes the joint angle metric values and aggregates them directly.
         Args:
@@ -229,7 +230,7 @@ class MetricsEngine(object):
         else:
             ps = predictions
             ts = targets
-        new_metrics = self.compute(ps, ts, reduce_fn, repr)
+        new_metrics = self.compute(ps, ts, reduce_fn)
         self.aggregate(new_metrics)
 
     def get_final_metrics(self):
