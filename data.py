@@ -10,6 +10,7 @@ import torch
 
 from configuration import CONSTANTS as C
 from torch.utils.data import Dataset
+from utils import rotmat2axangle
 
 
 class AMASSSample(object):
@@ -36,6 +37,11 @@ class AMASSSample(object):
     def extract_window(self, start_frame, end_frame):
         """Extract a subwindow."""
         return AMASSSample(self.seq_id, self.poses[start_frame:end_frame])
+
+    def logmap(self):
+        """Transform between rotation matrix and axis angle representation"""
+        self.poses = rotmat2axangle(self.poses)
+        return self
 
 
 class AMASSBatch(object):
