@@ -63,7 +63,7 @@ class DCT_GCN(BaseModel):
         self.idct_mat = Variable(torch.from_numpy(idct_mat)).float().to(C.DEVICE)
 
         # number of dct frequencies
-        self.n_dct_freq = 20
+        self.n_dct_freq = config.nr_dct_dim
 
         self.gcn_hidden_feature = 256  # Mao19 default param
         self.gcn_p_dropout      = 0.5  # Mao19 default param
