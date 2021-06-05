@@ -60,7 +60,9 @@ class DCT_GCN(BaseModel):
         # Compute DCT matrices once
         dct_mat, idct_mat = get_dct_matrix(self.seed_seq_len + self.target_seq_len)
         self.dct_mat = Variable(torch.from_numpy(dct_mat)).float().to(C.DEVICE)
+        print(self.dct_mat.shape)
         self.idct_mat = Variable(torch.from_numpy(idct_mat)).float().to(C.DEVICE)
+        print(self.idct_mat.shape)
 
         # number of dct frequencies
         self.n_dct_freq = 20
