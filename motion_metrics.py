@@ -3,6 +3,7 @@ Helper functions to compute evaluation metrics.
 
 Copyright ETH Zurich, Manuel Kaufmann
 """
+from typing import ValuesView
 import cv2
 import copy
 import numpy as np
@@ -14,6 +15,7 @@ from fk import SMPL_PARENTS
 from fk import sparse_to_full
 from fk import local_rot_to_global
 
+from utils import axangle2rotmat
 
 def eye(n, batch_shape):
     iden = np.zeros(np.concatenate([batch_shape, [n, n]]))
@@ -122,7 +124,7 @@ class MetricsEngine(object):
         self.n_samples = 0
         self._should_call_reset = False  # now it's again safe to compute new values
 
-    def compute(self, predictions, targets, reduce_fn="mean"):
+    def compute(self, predictions, targets, reduce_fn="mean", repr="rotmat"):
         """
         Compute the joint angle metric. Predictions and targets are assumed to be in rotation matrix format.
         Args:
@@ -134,6 +136,14 @@ class MetricsEngine(object):
             A dictionary {"joint_angle" -> values} where the values are given per batch entry and frame as an np array
             of shape (n, seq_length).
         """
+
+        if repr == "axangle":
+            predictions = axangle2rotmat(predictions)
+            targets = axangle2rotmat(targets)
+
+        elif repr != "rotmat":
+            raise ValueError(f"Unkown representation: {repr}")
+
         assert predictions.shape[-1] % 9 == 0, "predictions are not rotation matrices"
         assert targets.shape[-1] % 9 == 0, "targets are not rotation matrices"
         assert reduce_fn in ["mean", "sum"]
@@ -205,7 +215,7 @@ class MetricsEngine(object):
         batch_size = new_metrics[list(new_metrics.keys())[0]].shape[0]
         self.n_samples += batch_size
 
-    def compute_and_aggregate(self, predictions, targets, reduce_fn="mean"):
+    def compute_and_aggregate(self, predictions, targets, reduce_fn="mean", repr="rotmat"):
         """
         Computes the joint angle metric values and aggregates them directly.
         Args:
@@ -219,7 +229,7 @@ class MetricsEngine(object):
         else:
             ps = predictions
             ts = targets
-        new_metrics = self.compute(ps, ts, reduce_fn)
+        new_metrics = self.compute(ps, ts, reduce_fn, repr)
         self.aggregate(new_metrics)
 
     def get_final_metrics(self):

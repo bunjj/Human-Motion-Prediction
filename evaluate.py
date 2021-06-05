@@ -119,8 +119,15 @@ def evaluate_test(model_id, viz=False):
             model_out = net(batch_gpu)
 
             for b in range(abatch.batch_size):
-                results[batch_gpu.seq_ids[b]] = (model_out['predictions'][b].detach().cpu().numpy(),
-                                                 model_out['seed'][b].detach().cpu().numpy())
+
+                predictions = model_out['predictions'][b].detach().cpu().numpy()
+                seed = model_out['seed'][b].detach().cpu().numpy()
+
+                if model_config.repr == 'axangle':
+                    predictions = U.axangle2rotmat(predictions)
+                    seed = U.axangle2rotmat(seed)
+
+                results[batch_gpu.seq_ids[b]] = (predictions, seed)
 
     fname = 'predictions_in{}_out{}.csv'.format(model_config.seed_seq_len, model_config.target_seq_len)
     _export_results(results, os.path.join(model_dir, fname))

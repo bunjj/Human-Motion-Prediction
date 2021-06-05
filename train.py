@@ -17,8 +17,7 @@ from configuration import Configuration
 from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
-from data_transforms import ExtractWindow
-from data_transforms import ToTensor
+from data_transforms import ToTensor, LogMap, ExtractWindow
 from evaluate import evaluate_test
 from models import create_model
 from motion_metrics import MetricsEngine
@@ -86,13 +85,29 @@ def main(config):
     # You can define your own transforms in `data_transforms.py` and add them here.
     rng_extractor = np.random.RandomState(4313)
     window_size = config.seed_seq_len + config.target_seq_len
-    train_transform = transforms.Compose([ExtractWindow(window_size, rng_extractor, mode='random'),
-                                          ToTensor()])
-    # Validation data is already in the correct length, so no need to extract windows.
-    valid_transform = transforms.Compose([ToTensor()])
 
-    # For the training data we pass in the `window_size` variable, so that all samples whose length is smaller than
-    # `window_size` are rejected.
+    # define data transform based on configuration
+    if config.repr == 'rotmat':
+        train_transform = transforms.Compose([ExtractWindow(window_size, rng_extractor, mode='random'), ToTensor()])
+        # For the training data we pass in the `window_size` variable, so that all samples whose length is smaller than
+        # `window_size` are rejected.
+
+        valid_transform = transforms.Compose([ToTensor()])
+        # Validation data is already in the correct length, so no need to extract windows.
+
+    elif config.repr == 'axangle': 
+        train_transform = transforms.Compose([
+            ExtractWindow(window_size, rng_extractor, mode='random'),
+            LogMap(),
+            ToTensor()])
+
+        valid_transform = transforms.Compose([
+            LogMap(),
+            ToTensor()])
+    else:
+        raise ValueError(f"Unkown representation: {config.repr}")
+
+
     train_data = LMDBDataset(os.path.join(C.DATA_DIR, "training"), transform=train_transform,
                              filter_seq_len=window_size)
     valid_data = LMDBDataset(os.path.join(C.DATA_DIR, "validation"), transform=valid_transform)

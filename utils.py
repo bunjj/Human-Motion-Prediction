@@ -7,6 +7,8 @@ import glob
 import os
 import zipfile
 import numpy as np
+import cv2
+
 
 def create_model_dir(experiment_main_dir, experiment_id, model_summary):
     """
@@ -63,3 +65,45 @@ def get_dct_matrix(N):
             dct_m[k, i] = w * np.cos(np.pi * (i + 1 / 2) * k / N)
     idct_m = np.linalg.inv(dct_m)
     return dct_m, idct_m
+
+def rotmat2axangle(rotmats):
+    """Transform rotation matrix to axis angle representation."""
+
+    if type(rotmats) is not np.ndarray:
+        raise ValueError('Rodrigues only works on numpy arrays')
+    
+    # store original shape
+    shape = rotmats.shape[:-1]
+    assert (shape[-1] % 9 == 0) or (len(shape)>1 and shape[-2:-1]==(3,3)), "inputs are not rotation matrices"
+    rotmats = rotmats.reshape((-1, 3, 3))
+
+    axangles = []
+    for i in range(rotmats.shape[0]):
+        axangle, _ = cv2.Rodrigues(rotmats[i])
+        axangles.append(axangle)
+    
+    # restore original shape
+    new_shape = shape[:-1] + (shape[-1]/9*3)
+    return np.array(axangles).reshape(new_shape)
+
+
+
+def axangle2rotmat(axangles):
+    """Transform axis angle to rotation matrix representation."""
+
+    if type(axangles) is not np.ndarray:
+        raise ValueError('Rodrigues only works on numpy arrays')
+    
+    # store original shape
+    shape = axangles.shape
+    assert shape[-1] % 3 == 0, "inputs are not axis angles"
+    axangles = axangles.reshape((-1, 3))
+
+    rotmats = []
+    for i in range(axangles.shape[0]):
+        rotmat, _ = cv2.Rodrigues(axangles[i])
+        rotmats.append(rotmat)
+
+    # restore original shape
+    new_shape = shape[:-1] + (shape[-1]/3*9)
+    return np.array(rotmats).reshape(new_shape)
