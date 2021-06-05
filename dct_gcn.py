@@ -10,7 +10,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from data import AMASSBatch
-from losses import mse
+from losses import rmse
 from configuration import CONSTANTS as C
 from gcn import GCN
 
@@ -93,7 +93,6 @@ class DCT_GCN(BaseModel):
         ######################
 
         input_series = batch.poses[:, :self.seed_seq_len, :]
-        print(input_series.shape)
         # => (batchsize, self.seed_seq_len, N_JOINT * DOF)
 
         # prepare padding of input series
@@ -101,12 +100,10 @@ class DCT_GCN(BaseModel):
         all_indices = np.arange(0, self.seed_seq_len)
         last_indeces = np.full(self.target_seq_len, self.seed_seq_len-1)
         index_padded = np.append(all_indices, last_indeces)
-        print(index_padded)
         # => (self.seed_seq_len + self.target_seq_len)
 
         # transform padded series to frequency domain
         input_dct = torch.matmul(self.dct_mat[:self.n_dct_freq,:], input_series[:, index_padded, :])
-        print(input_dct.shape)
         # => (batchsize, self.n_dct_freq, N_JOINT * DOF)
 
         ######################
@@ -121,9 +118,7 @@ class DCT_GCN(BaseModel):
 
         # transform back to time domain
         # TODO: Mao uses complicated transposes and stuff?
-        print(output_dct.shape)
         output_series = torch.matmul(self.idct_mat[:,:self.n_dct_freq], output_dct)
-        print(output_series.shape)
         # => (batchsize, self.seed_seq_len + self.target_seq_len, N_JOINT * DOF)
 
         # store predictions back
@@ -150,7 +145,7 @@ class DCT_GCN(BaseModel):
         else:
             targets = batch.poses[:, self.config.seed_seq_len:, :]
 
-        total_loss = mse(predictions, targets)
+        total_loss = rmse(predictions, targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}

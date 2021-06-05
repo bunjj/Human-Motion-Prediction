@@ -180,7 +180,11 @@ def main(config):
             train_losses, targets = net.backward(batch_gpu, model_out)
 
             # Update params.
+            if config.clip_gradient:
+                torch.nn.utils.clip_grad_norm(net.parameters(), max_norm=1)
+
             optimizer.step()
+            scheduler.step()
 
             elapsed = time.time() - start
 
@@ -231,8 +235,6 @@ def main(config):
                 net.train()
 
             global_step += 1
-        
-        print(i)
 
     # After the training, evaluate the model on the test and generate the result file that can be uploaded to the
     # submission system. The submission file will be stored in the model directory.
