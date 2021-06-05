@@ -55,3 +55,4 @@ def avg_l1(predictions, targets):
     https://github.com/wei-mao-2019/LearnTrajDep/blob/master/utils/loss_funcs.py#L7
     """
     loss = torch.mean(torch.sum(torch.abs(predictions - targets), dim=2).view(-1))
+    return loss
