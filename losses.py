@@ -15,3 +15,16 @@ def mse(predictions, targets):
     diff = predictions - targets
     loss_per_sample_and_seq = (diff * diff).sum(dim=-1)  # (N, F)
     return loss_per_sample_and_seq.mean()
+
+
+def rmse(predictions, targets):
+    """
+    Compute the RMSE.
+    :param predictions: A tensor of shape (N, MAX_SEQ_LEN, -1)
+    :param targets: A tensor of shape (N, MAX_SEQ_LEN, -1)
+    :return: The RMSE between predictions and targets.
+    """
+    diff = predictions - targets
+    loss_per_sample_and_seq = (diff * diff).sum(dim=-1)  # (N, F)
+    loss_per_sample_and_seq = loss_per_sample_and_seq.sqrt()
+    return loss_per_sample_and_seq.mean()
