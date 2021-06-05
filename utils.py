@@ -59,7 +59,7 @@ def rotmat2axangle(rotmats):
         raise ValueError('Rodrigues only works on numpy arrays')
     
     # store original shape
-    shape = rotmats.shape[:-1]
+    shape = rotmats.shape
     assert (shape[-1] % 9 == 0) or (len(shape)>1 and shape[-2:-1]==(3,3)), "inputs are not rotation matrices"
     rotmats = rotmats.reshape((-1, 3, 3))
 
