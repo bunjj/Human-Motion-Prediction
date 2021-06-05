@@ -83,7 +83,7 @@ def rotmat2axangle(rotmats):
         axangles.append(axangle)
     
     # restore original shape
-    new_shape = shape[:-1] + (shape[-1]//9*3)
+    new_shape = shape[:-1] + (shape[-1]//9*3,)
     return np.array(axangles).reshape(new_shape)
 
 
@@ -105,5 +105,5 @@ def axangle2rotmat(axangles):
         rotmats.append(rotmat)
 
     # restore original shape
-    new_shape = shape[:-1] + (shape[-1]//3*9)
+    new_shape = shape[:-1] + (shape[-1]//3*9,)
     return np.array(rotmats).reshape(new_shape)
