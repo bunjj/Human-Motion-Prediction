@@ -128,7 +128,12 @@ def main(config):
     stats = np.load(os.path.join(C.DATA_DIR, "training", "stats.npz"), allow_pickle=True)['stats'].tolist()
 
     # Set the pose size in the config as models use this later.
-    setattr(config, 'pose_size', 135)
+    if config.repr == 'rotmat':
+        setattr(config, 'pose_size', 15 * 9)
+    elif config.repr == 'axangle':
+        setattr(config, 'pose_size', 15 * 3)
+    else:
+        raise ValueError(f"Unkown representation: {config.repr}")
 
     # Create the model.
     net = create_model(config)
@@ -136,7 +141,7 @@ def main(config):
     print('Model created with {} trainable parameters'.format(U.count_parameters(net)))
 
     # Prepare metrics engine.
-    me = MetricsEngine(C.METRIC_TARGET_LENGTHS)
+    me = MetricsEngine(C.METRIC_TARGET_LENGTHS, config.repr)
     me.reset()
 
     # Create or a new experiment ID and a folder where to store logs and config.
