@@ -13,8 +13,8 @@ class ToTensor(object):
         sample.to_tensor()
         return sample
 
-class Rodrigues(object):
-    """Apply Rodrigues to samples stored as numpy arrays."""
+class LogMap(object):
+    """Apply the Logarithm Map to samples stored as numpy arrays."""
     def __call__(self, sample: AMASSSample):
         sample.logmap()
         return sample
