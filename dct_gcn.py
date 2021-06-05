@@ -10,7 +10,7 @@ from torch.autograd import Variable
 import numpy as np
 
 from data import AMASSBatch
-from losses import rmse
+from losses import *
 from configuration import CONSTANTS as C
 from gcn import GCN
 
@@ -145,7 +145,7 @@ class DCT_GCN(BaseModel):
         else:
             targets = batch.poses[:, self.config.seed_seq_len:, :]
 
-        total_loss = rmse(predictions, targets)
+        total_loss = loss_pose_joint_sum(predictions, targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
