@@ -70,7 +70,7 @@ class Configuration(object):
         parser.add_argument('--target_seq_len', type=int, default=24, help='How many frames to predict.')
 
         # Learning configurations.
-        parser.add_argument('--repr', type=str, default='rotmat', choices={'rotmat, axangle'}, help='Representation to which the data should be transformed')
+        parser.add_argument('--repr', type=str, choices={'rotmat', 'axangle'}, default='rotmat', help='Representation to which the data should be transformed')
         parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
         parser.add_argument('--bs_train', type=int, default=16, help='Batch size for the training set.')
