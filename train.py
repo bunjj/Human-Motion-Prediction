@@ -204,7 +204,6 @@ def main(config):
                 torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1)
 
             optimizer.step()
-            scheduler.step()
 
             if config.use_lr_decay:
                 scheduler.step()
