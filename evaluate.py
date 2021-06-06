@@ -14,7 +14,7 @@ from configuration import Configuration
 from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
-from data_transforms import ToTensor
+from data_transforms import ToTensor, LogMap
 from fk import SMPLForwardKinematics
 from models import create_model
 from torch.utils.data import DataLoader
@@ -98,7 +98,13 @@ def evaluate_test(model_id, viz=False):
     net, model_config, model_dir = load_model(model_id)
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
-    test_transform = transforms.Compose([ToTensor()])
+    if model_config.repr == "rotmat":
+        test_transform = transforms.Compose([ToTensor()])
+    elif model_config.repr == "axangle":
+        test_transform = transforms.Compose([LogMap(), ToTensor()])
+    else:
+        raise ValueError(f"Unkown representation: {model_config.repr}")
+
     test_data = LMDBDataset(os.path.join(C.DATA_DIR, "test"), transform=test_transform)
     test_loader = DataLoader(test_data,
                              batch_size=model_config.bs_eval,
