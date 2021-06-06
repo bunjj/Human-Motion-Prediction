@@ -186,7 +186,6 @@ def main(config):
 
             if config.use_lr_decay:
                 scheduler.step()
-            #print(optimizer.param_groups[0]["lr"])
             elapsed = time.time() - start
 
             # Write training stats to Tensorboard.

@@ -43,6 +43,7 @@ class BaseModel(nn.Module):
 class RNN(BaseModel):
     """
     This models the implementation of RNN as described in
+    overly complicated but works by now
     https://ait.ethz.ch/projects/2019/spl/
     """
 
