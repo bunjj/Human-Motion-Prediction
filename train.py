@@ -17,6 +17,7 @@ from configuration import Configuration
 from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
+import losses
 from data_transforms import ToTensor, LogMap, ExtractWindow
 from evaluate import evaluate_test
 from models import create_model
