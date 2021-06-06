@@ -69,13 +69,13 @@ class Configuration(object):
         parser.add_argument('--seed_seq_len', type=int, default=120, help='Number of frames for the seed length.')
         parser.add_argument('--target_seq_len', type=int, default=24, help='How many frames to predict.')
 
-        # Learning configurations
-        parser.add_argument('--repr', type=str, choices={'rotmat, axangle'}, default='rotmat', help='Representation to which the data should be transformed')
+        # Learning configurations.
+        parser.add_argument('--repr', type=str, choices={'rotmat', 'axangle'}, default='rotmat', help='Representation to which the data should be transformed')
         parser.add_argument('--opt', type=str, choices={"adam", "sgd"}, default="sgd", help='Type of optimizer')
-        parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate.')
+        parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
         parser.add_argument('--use_lr_decay', help='Use LR decay', action = "store_true")
-        parser.add_argument('--lr_decay_rate', type=float, default=0.96, help='Learning rate decay rate.')
-        parser.add_argument('--lr_decay_step', type=float, default=522, help='Learning rate decay step.')
+        parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')
+        parser.add_argument('--lr_decay_step', type=float, default=1000, help='Learning rate decay step.')
         parser.add_argument('--clip_gradient', help='Use gradient clipping to l2 norm of 1', action = "store_true")
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
         parser.add_argument('--bs_train', type=int, default=16, help='Batch size for the training set.')
