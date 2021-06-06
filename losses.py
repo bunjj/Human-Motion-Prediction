@@ -42,6 +42,21 @@ def loss_pose_joint_sum(predictions, targets):
     """
     Loss computed as described https://github.com/eth-ait/spl/blob/6b37cc0a61c69b6e43187800d6589eb9cfaa9799/spl/model/base_model.py
     """
+
+    """
+    Generic Version:
+    n_baches, n_frames, joints_x_dof = predictions.shape
+
+    joints = 15
+    dof = joints_x_dof // joints
+
+    diff = predictions - targets
+    loss_per_joint = (diff * diff).view(n_baches, n_frames, joints, dof).sum(dim=-1).sqrt() # (N, F, J)
+    loss_per_sample_and_seq = loss_per_joint.sum(dim=-1) # (N, F)
+
+    return loss_per_sample_and_seq.mean()
+    """
+    
     diff = predictions - targets
     per_joint_loss = (diff * diff).view(-1, 143, 15, 9) #TODO: adjust such that it doesn't use hardcoded
     per_joint_loss = per_joint_loss.sum(dim=-1)
