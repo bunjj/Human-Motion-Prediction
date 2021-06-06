@@ -50,7 +50,7 @@ def loss_pose_joint_sum(predictions, targets, n_frames = 144):
 
     diff = predictions - targets
     loss_per_joint = (diff * diff).view(-1, n_frames, joints, dof)
-    loss_per_joint = loss_per_joint.sum(dim=-1).
+    loss_per_joint = loss_per_joint.sum(dim=-1)
     loss_per_joint = loss_per_joint.sqrt() # (N, F, J)
     loss_per_sample_and_seq = loss_per_joint.sum(dim=-1) # (N, F)
 
