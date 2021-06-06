@@ -167,10 +167,21 @@ def main(config):
     writer = SummaryWriter(os.path.join(model_dir, 'logs'))
 
     # Define the optimizer.
-    optimizer = optim.SGD(net.parameters(), lr=config.lr)
-    print("optimizer= SGD")
-    #optimizer = optim.Adam(net.parameters(), lr=config.lr)
-    #print("optimizer= Adam")
+    if config.opt == "adam":
+        optimizer = optim.Adam(net.parameters(), lr=config.lr)
+        print("optimizer= Adam")
+    else:
+        optimizer = optim.SGD(net.parameters(), lr=config.lr)
+        print("optimizer= SGD")
+        
+    if config.use_lr_decay:
+        print("using LR decay")
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                    step_size=config.lr_decay_step,
+                                                    gamma=config.lr_decay_rate,
+                                                    last_epoch=-1)
+    
+    
     
     # Training loop.
     global_step = 0
@@ -193,6 +204,8 @@ def main(config):
             # Update params.
             optimizer.step()
 
+            if config.use_lr_decay:
+                scheduler.step()
             elapsed = time.time() - start
 
             # Write training stats to Tensorboard.

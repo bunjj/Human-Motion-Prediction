@@ -7,9 +7,9 @@ import torch
 import torch.nn as nn
 
 from data import AMASSBatch
-from losses import mse
+from losses import *
 from configuration import CONSTANTS as C
-
+import numpy as np
 
 
 class BaseModel(nn.Module):
@@ -39,31 +39,34 @@ class BaseModel(nn.Module):
         """A summary string of this model. Override this if desired."""
         return '{}-lr{}'.format(self.__class__.__name__, self.config.lr)
 
-
-class Seq2Seq(BaseModel):
+class RNN2(BaseModel):
     """
-    This is a dummy model. It provides basic implementations to demonstrate how more advanced models can be built.
+    This models the implementation of RNN as described in
+    simple clean code version
+    https://ait.ethz.ch/projects/2019/spl/
     """
 
     def __init__(self, config):
-        self.n_history = 10
         self.rnn_size = 1024
-        self.dropout = 0
+        self.dropout = 0.1
+        self.spl_size = 128
+        self.linear_size = 256
         self.seed_seq_len = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
-        self.input_size = config.pose_size
+        self.pose_size = config.pose_size
 
-        super(Seq2Seq, self).__init__(config)
+        super(RNN2, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
-        # In this model we simply feed the last time steps of the seed to a dense layer and
-        # predict the targets directly.
-        self.cell = nn.GRUCell(self.input_size, self.rnn_size)
 
-        self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
-        # self.dense = nn.Linear(in_features=self.n_history * self.pose_size,
-        #                        out_features=self.config.target_seq_len * self.pose_size)
+        self.linear = nn.Linear(in_features=self.pose_size, out_features=self.linear_size)
+        self.cell = nn.LSTMCell(input_size=self.linear_size, hidden_size=self.rnn_size)
+        self.linear_pred_1 = nn.Linear(in_features=self.rnn_size, out_features=960)
+        self.relu = nn.ReLU()
+        self.linear_pred_2 = nn.Linear(in_features=960, out_features=self.pose_size)
+
+        pass
 
     def forward(self, batch: AMASSBatch):
         """
@@ -71,64 +74,56 @@ class Seq2Seq(BaseModel):
         :param batch: Current batch of data.
         :return: Each forward pass must return a dictionary with keys {'seed', 'predictions'}.
         """
-        model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
-                     'predictions': None}
         def loop_function(prev, i):
             return prev
 
+        model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
+                     'predictions': None}
+
         batch_size = batch.batch_size
 
-        ######################
+        prediction_inputs = batch.poses
+        prediction_inputs = torch.transpose(prediction_inputs, 0, 1)
 
-        encoder_inputs = batch.poses[:, 0:self.seed_seq_len - 1, :]
-        if not self.training:
-            decoder_inputs = torch.zeros((batch.poses.shape[0], self.target_seq_len, batch.poses.shape[2]))
-            decoder_inputs[:,0,:] = batch.poses[:,self.seed_seq_len-1, :]
-            decoder_inputs = decoder_inputs.to(C.DEVICE)
-        else:
-            decoder_inputs  = batch.poses[:, self.seed_seq_len-1:self.seed_seq_len+self.target_seq_len-1, :]
+        state_h = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
+        state_c = torch.zeros(batch_size, self.rnn_size, device=C.DEVICE)
 
-
-
-        encoder_inputs = torch.transpose(encoder_inputs, 0, 1)
-        decoder_inputs = torch.transpose(decoder_inputs, 0, 1)
-
-        state = torch.zeros(batch_size, self.rnn_size)
-
-        state  = state.to(C.DEVICE)
-        for i in range(self.seed_seq_len - 1):
-            state = self.cell(encoder_inputs[i], state)
-            state = nn.functional.dropout(state, self.dropout, training=self.training)
-            state = state.to(C.DEVICE)
-
-
+        all_outputs = []
         outputs = []
-        prev = None
-        for i, inp in enumerate(decoder_inputs):
-            if loop_function is not None and prev is not None:
-                inp = loop_function(prev, i)
+        prev = None 
+        
+        for i in range((self.seed_seq_len + self.target_seq_len-1)):
+            
+            if i < self.seed_seq_len or self.training:
+                inp = prediction_inputs[i]
+            else:
+                inp = prev
+                inp = inp.detach()
+                
+            state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
+            (state_h, state_c) = self.cell(state, (state_h, state_c))
 
-            inp = inp.detach()
+            state = self.linear_pred_1(state_h)
+            state = self.relu(state)
+            state = self.linear_pred_2(state)
+            output = inp + state
 
-            state = self.cell(inp, state)
+            all_outputs.append(output.view([1, batch_size, self.pose_size]))
+            if i >= (self.seed_seq_len-1):
+                outputs.append(output.view([1, batch_size, self.pose_size]))
 
-            output = inp + self.fc1(nn.functional.dropout(state, self.dropout, training=self.training))
-            outputs.append(output.view([1, batch_size, self.input_size]))
+            prev = output
 
-            if loop_function is not None:
-                prev = output
 
         outputs = torch.cat(outputs, 0)
         outputs = torch.transpose(outputs, 0, 1)
-        model_out['predictions'] = outputs
 
-        ##############################################
-        #previous shizzle
-        ##################3
-        # model_in = batch.poses[:, self.config.seed_seq_len-self.n_history:self.config.seed_seq_len]
-        # pred = self.dense(model_in.reshape(batch_size, -1))
-        # model_out['predictions'] = pred.reshape(batch_size, self.config.target_seq_len, -1)
-        ########################################
+        all_outputs = torch.cat(all_outputs,0)
+        all_outputs = torch.transpose(all_outputs, 0,1)
+
+        model_out['predictions'] = outputs
+        model_out['training_predictions'] = all_outputs
+
         return model_out
 
     def backward(self, batch: AMASSBatch, model_out):
@@ -140,8 +135,16 @@ class Seq2Seq(BaseModel):
         """
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
+        #print("predictions " + str(predictions.shape))
+        #print("targets " + str(targets.shape))
+        #total_loss = mse(predictions, targets)
 
-        total_loss = mse(predictions, targets)
+        all_predictions = model_out['training_predictions']
+        all_targets = batch.poses[:, 1:]
+        #print("all_predictions " + str(all_predictions.shape))
+        #print("all_targets " + str(all_targets.shape))
+
+        total_loss = loss_pose_joint_sum(all_predictions, all_targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
