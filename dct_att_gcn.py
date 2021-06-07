@@ -56,13 +56,14 @@ class DCT_ATT_GCN(BaseModel):
         self.seed_seq_len   = config.seed_seq_len
         self.target_seq_len = config.target_seq_len
         self.input_size     = config.pose_size
-        self.n_dct_freq     = config.nr_dct_dim
+        #self.n_dct_freq     = config.nr_dct_dim
         
         self.kernel_size    = 10   # Mao20 default param
         self.hidden_feature = 512  # Mao20 default param
         self.gcn_p_dropout  = 0.3  # Mao20 default param
         self.gcn_num_stage  = 2    # Mao20 default param
         
+        self.n_dct_freq     = self.kernel_size + config.target_seq_len # M + T Mao20 default param
 
         # Compute DCT matrices once
         dct_mat, idct_mat = get_dct_matrix(self.kernel_size + self.target_seq_len)
@@ -118,10 +119,10 @@ class DCT_ATT_GCN(BaseModel):
 
         input_series = batch.poses[:, :self.seed_seq_len, :]
         src_tmp = input_series.clone()
-        print(src_tmp)
+        print(src_tmp.shape)
         # => (batchsize, self.seed_seq_len, N_JOINT * DOF)
         
-        src_key_tmp   = src_tmp.transpose(1, 2)[:, :, :(input_n - output_n)].clone()
+        src_key_tmp   = src_tmp.transpose(1, 2)[:, :, :(self.seed_seq_len - self.target_seq_len)].clone()
         print(src_key_tmp.shape)
         src_query_tmp = src_tmp.transpose(1, 2)[:, :, -self.kernel_size:].clone()
         print(src_query_tmp.shape)
@@ -137,13 +138,13 @@ class DCT_ATT_GCN(BaseModel):
         src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1])
         print(src_value_tmp.shape)
         
-        src_value_tmp = torch.matmul(dct_m[:dct_n].unsqueeze(dim=0), src_value_tmp)
+        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp)
         print(src_value_tmp.shape)
-        src_value_tmp = src_value_tmp.reshape([bs, vn, dct_n, -1])
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1])
         print(src_value_tmp.shape)
         src_value_tmp = src_value_tmp.transpose(2, 3)
         print(src_value_tmp.shape)
-        src_value_tmp = src_value_tmp.reshape([bs, vn, -1])  # [32,40,66*11]
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [32,40,66*11]
         print(src_value_tmp.shape)
         
         
