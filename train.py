@@ -142,7 +142,7 @@ def main(config):
     if config.loss_type == "rmse":
         net.loss_fun = losses.rmse
     elif config.loss_type == "per_joint":
-        net.loss_fun = losses.per_joint
+        net.loss_fun = losses.loss_pose_joint_sum
     elif config.loss_type == "avg_l1":
         net.loss_fun = losses.avg_l1
     else:
