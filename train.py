@@ -204,7 +204,6 @@ def main(config):
         for i, abatch in enumerate(train_loader):
             start = time.time()
             optimizer.zero_grad()
-
             # Move data to GPU.
             batch_gpu = abatch.to_gpu()
 
