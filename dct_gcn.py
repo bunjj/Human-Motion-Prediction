@@ -25,6 +25,7 @@ class BaseModel(nn.Module):
         self.pose_size = config.pose_size
         self.create_model()
         self.is_test = False
+        self.loss_fun = None
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
@@ -145,7 +146,7 @@ class DCT_GCN(BaseModel):
         else:
             targets = batch.poses[:, self.config.seed_seq_len:, :]
 
-        total_loss = avg_l1(predictions, targets)
+        total_loss = self.loss_fun(predictions, targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
