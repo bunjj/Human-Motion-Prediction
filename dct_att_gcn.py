@@ -177,49 +177,6 @@ class DCT_ATT_GCN(BaseModel):
 
         return model_out
 
-        
-        raise ValueError("stop here")
-        return outputs
-        
-        
-        raise ValueError("stop here")
-
-        # prepare padding of input series
-        # TODO: indices are allowed to by np.ndarrays?
-        all_indices = np.arange(0, self.seed_seq_len)
-        last_indeces = np.full(self.target_seq_len, self.seed_seq_len-1)
-        index_padded = np.append(all_indices, last_indeces)
-        # => (self.seed_seq_len + self.target_seq_len)
-
-        # transform padded series to frequency domain
-        input_dct = torch.matmul(self.dct_mat[:self.n_dct_freq,:], input_series[:, index_padded, :])
-        # => (batchsize, self.n_dct_freq, N_JOINT * DOF)
-
-        ######################
-
-        # predict batchwise
-        pred = self.gcn(input_dct.transpose(1,2))
-        output_dct = pred.transpose(1,2)
-        # => (batchsize, self.n_dct_freq, N_JOINT * DOF)
-
-
-        ######################
-
-        # transform back to time domain
-        # TODO: Mao uses complicated transposes and stuff?
-        output_series = torch.matmul(self.idct_mat[:,:self.n_dct_freq], output_dct)
-        # => (batchsize, self.seed_seq_len + self.target_seq_len, N_JOINT * DOF)
-
-        # store predictions back
-        # TODO: Mao computes MSE over entire sequence,
-        #       but template assumes predictions to be of length 24?
-        if self.training:
-            model_out['predictions'] = output_series
-        else:
-            model_out['predictions'] = output_series[:, self.config.seed_seq_len:, :]
-
-        return model_out
-
     def backward(self, batch: AMASSBatch, model_out):
         """
         The backward pass.
@@ -228,11 +185,7 @@ class DCT_ATT_GCN(BaseModel):
         :return: The loss values for book-keeping, as well as the targets for convenience.
         """
         predictions = model_out['predictions']
-
-        if self.training:
-            targets = batch.poses
-        else:
-            targets = batch.poses[:, self.config.seed_seq_len:, :]
+        targets = batch.poses[:, -(self.kernel_size + self.target_seq_len), :]
 
         total_loss = avg_l1(predictions, targets)
 
