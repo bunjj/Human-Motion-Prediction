@@ -101,6 +101,7 @@ class RNN2(BaseModel):
                 inp = inp.detach()
                 
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
+            state = self.relu(state)
             (state_h, state_c) = self.cell(state, (state_h, state_c))
 
             state = self.linear_pred_1(state_h)
@@ -144,7 +145,7 @@ class RNN2(BaseModel):
         #print("all_predictions " + str(all_predictions.shape))
         #print("all_targets " + str(all_targets.shape))
 
-        total_loss = loss_pose_joint_sum(all_predictions, all_targets)
+        total_loss = loss_pose_joint_sum_squared(all_predictions, all_targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
