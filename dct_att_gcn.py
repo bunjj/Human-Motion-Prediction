@@ -166,30 +166,31 @@ class DCT_ATT_GCN(BaseModel):
             out_gcn = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
                                    dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
             print(out_gcn.shape)
+            print(out_gcn.unsqueeze(2).shape)
             outputs.append(out_gcn.unsqueeze(2))
             
-            if self.itera > 1:
-                # update key-value query
-                out_tmp = out_gcn.clone()[:, 0 - self.target_seq_len:]
-                src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
-
-                vn = 1 - 2 * self.kernel_size - self.target_seq_len
-                vl = self.kernel_size + self.target_seq_len
-                idx_dct = np.expand_dims(np.arange(vl), axis=0) + \
-                          np.expand_dims(np.arange(vn, -self.kernel_size - self.target_seq_len + 1), axis=1)
-
-                src_key_tmp = src_tmp[:, idx_dct[0, :-1]].transpose(1, 2)
-                key_new = self.convK(src_key_tmp / 1000.0)
-                key_tmp = torch.cat([key_tmp, key_new], dim=2)
-
-                src_dct_tmp = src_tmp[:, idx_dct].clone().reshape(
-                    [bs * self.kernel_size, vl, -1])
-                src_dct_tmp = torch.matmul(dct_m[:self.n_dct_freq].unsqueeze(dim=0), src_dct_tmp).reshape(
-                    [bs, self.kernel_size, self.n_dct_freq, -1]).transpose(2, 3).reshape(
-                    [bs, self.kernel_size, -1])
-                src_value_tmp = torch.cat([src_value_tmp, src_dct_tmp], dim=1)
-
-                src_query_tmp = src_tmp[:, -self.kernel_size:].transpose(1, 2)
+#            if self.itera > 1:
+#                # update key-value query
+#                out_tmp = out_gcn.clone()[:, 0 - self.target_seq_len:]
+#                src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
+#
+#                vn = 1 - 2 * self.kernel_size - self.target_seq_len
+#                vl = self.kernel_size + self.target_seq_len
+#                idx_dct = np.expand_dims(np.arange(vl), axis=0) + \
+#                          np.expand_dims(np.arange(vn, -self.kernel_size - self.target_seq_len + 1), axis=1)
+#
+#                src_key_tmp = src_tmp[:, idx_dct[0, :-1]].transpose(1, 2)
+#                key_new = self.convK(src_key_tmp / 1000.0)
+#                key_tmp = torch.cat([key_tmp, key_new], dim=2)
+#
+#                src_dct_tmp = src_tmp[:, idx_dct].clone().reshape(
+#                    [bs * self.kernel_size, vl, -1])
+#                src_dct_tmp = torch.matmul(dct_m[:self.n_dct_freq].unsqueeze(dim=0), src_dct_tmp).reshape(
+#                    [bs, self.kernel_size, self.n_dct_freq, -1]).transpose(2, 3).reshape(
+#                    [bs, self.kernel_size, -1])
+#                src_value_tmp = torch.cat([src_value_tmp, src_dct_tmp], dim=1)
+#
+#                src_query_tmp = src_tmp[:, -self.kernel_size:].transpose(1, 2)
 
         outputs = torch.cat(outputs, dim=2)
         print(outputs.shape)
