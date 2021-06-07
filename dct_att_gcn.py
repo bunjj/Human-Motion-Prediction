@@ -62,6 +62,7 @@ class DCT_ATT_GCN(BaseModel):
         self.hidden_feature = 512  # Mao20 default param
         self.gcn_p_dropout  = 0.3  # Mao20 default param
         self.gcn_num_stage  = 2    # Mao20 default param
+        self.itera          = 1    # Mao20 default param
         
         self.n_dct_freq     = self.kernel_size + config.target_seq_len # M + T Mao20 default param
 
@@ -119,34 +120,81 @@ class DCT_ATT_GCN(BaseModel):
 
         input_series = batch.poses[:, :self.seed_seq_len, :]
         src_tmp = input_series.clone()
-        print(src_tmp.shape)
         # => (batchsize, self.seed_seq_len, N_JOINT * DOF)
         
         src_key_tmp   = src_tmp.transpose(1, 2)[:, :, :(self.seed_seq_len - self.target_seq_len)].clone()
-        print(src_key_tmp.shape)
         src_query_tmp = src_tmp.transpose(1, 2)[:, :, -self.kernel_size:].clone()
-        print(src_query_tmp.shape)
         
         vn = self.seed_seq_len - self.kernel_size - self.target_seq_len + 1
-        print(vn)
         vl = self.kernel_size + self.target_seq_len
-        print(vl)
+
         
         idx_subsequences = np.expand_dims(np.arange(vl), axis=0) + np.expand_dims(np.arange(vn), axis=1)
-        print(idx_subsequences)
               
-        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1])
-        print(src_value_tmp.shape)
+        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1]) # [1392, 34, 135]
         
-        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp)
-        print(src_value_tmp.shape)
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1])
-        print(src_value_tmp.shape)
-        src_value_tmp = src_value_tmp.transpose(2, 3)
-        print(src_value_tmp.shape)
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [32,40,66*11]
-        print(src_value_tmp.shape)
+        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp) # to DCT --> [1392, 34, 135]
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1]) # [bs,87,34, 135]
+        src_value_tmp = src_value_tmp.transpose(2, 3) # [bs,87,135,34]
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [bs,87,135*34]
         
+        
+        idx = list(range(-self.kernel_size, 0, 1)) + [-1] * self.target_seq_len
+        outputs = []
+
+        #key_tmp = self.convK(src_key_tmp / 1000.0)
+        #allpying flattening function
+        key_tmp = self.convK(src_key_tmp)
+        print(key_tmp.shape)
+        for i in range(self.itera):
+            #query_tmp = self.convQ(src_query_tmp / 1000.0)
+            #allpying flattening function
+            query_tmp = self.convQ(src_query_tmp)
+            print(query_tmp.shape)
+            #compute scores
+            score_tmp = torch.matmul(query_tmp.transpose(1, 2), key_tmp) + 1e-15
+            print(score_tmp.shape)
+            
+            att_tmp = score_tmp / (torch.sum(score_tmp, dim=2, keepdim=True))
+            print(att_tmp.shape)
+            
+            dct_att_tmp = torch.matmul(att_tmp, src_value_tmp)[:, 0].reshape([batch_size, -1, self.n_dct_freq])
+            print(dct_att_tmp.shape)
+            
+            raise ValueError("stop here")
+
+            input_gcn = src_tmp[:, idx]
+            dct_in_tmp = torch.matmul(dct_m[:dct_n].unsqueeze(dim=0), input_gcn).transpose(1, 2)
+            dct_in_tmp = torch.cat([dct_in_tmp, dct_att_tmp], dim=-1)
+            dct_out_tmp = self.gcn(dct_in_tmp)
+            out_gcn = torch.matmul(idct_m[:, :dct_n].unsqueeze(dim=0),
+                                   dct_out_tmp[:, :, :dct_n].transpose(1, 2))
+            outputs.append(out_gcn.unsqueeze(2))
+            if itera > 1:
+                # update key-value query
+                out_tmp = out_gcn.clone()[:, 0 - output_n:]
+                src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
+
+                vn = 1 - 2 * self.kernel_size - output_n
+                vl = self.kernel_size + output_n
+                idx_dct = np.expand_dims(np.arange(vl), axis=0) + \
+                          np.expand_dims(np.arange(vn, -self.kernel_size - output_n + 1), axis=1)
+
+                src_key_tmp = src_tmp[:, idx_dct[0, :-1]].transpose(1, 2)
+                key_new = self.convK(src_key_tmp / 1000.0)
+                key_tmp = torch.cat([key_tmp, key_new], dim=2)
+
+                src_dct_tmp = src_tmp[:, idx_dct].clone().reshape(
+                    [bs * self.kernel_size, vl, -1])
+                src_dct_tmp = torch.matmul(dct_m[:dct_n].unsqueeze(dim=0), src_dct_tmp).reshape(
+                    [bs, self.kernel_size, dct_n, -1]).transpose(2, 3).reshape(
+                    [bs, self.kernel_size, -1])
+                src_value_tmp = torch.cat([src_value_tmp, src_dct_tmp], dim=1)
+
+                src_query_tmp = src_tmp[:, -self.kernel_size:].transpose(1, 2)
+
+        outputs = torch.cat(outputs, dim=2)
+        return outputs
         
         
         raise ValueError("stop here")
