@@ -150,35 +150,33 @@ class DCT_ATT_GCN(BaseModel):
             #query_tmp = self.convQ(src_query_tmp / 1000.0)
             #allpying flattening function
             query_tmp = self.convQ(src_query_tmp)
-            print(query_tmp.shape)
-            #compute scores
+            
             score_tmp = torch.matmul(query_tmp.transpose(1, 2), key_tmp) + 1e-15
-            print(score_tmp.shape)
             
             att_tmp = score_tmp / (torch.sum(score_tmp, dim=2, keepdim=True))
-            print(att_tmp.shape)
             
             dct_att_tmp = torch.matmul(att_tmp, src_value_tmp)[:, 0].reshape([batch_size, -1, self.n_dct_freq])
-            print(dct_att_tmp.shape)
             
-            raise ValueError("stop here")
-
             input_gcn = src_tmp[:, idx]
-            dct_in_tmp = torch.matmul(dct_m[:dct_n].unsqueeze(dim=0), input_gcn).transpose(1, 2)
+            # create dct of X_(N-M+1:N+T), where X_(N+1:N+T) = X_N
+            dct_in_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), input_gcn).transpose(1, 2)
+            # the weighted sum of the values are concatenated with the DCT coefficients of the last observed sub-sequence
             dct_in_tmp = torch.cat([dct_in_tmp, dct_att_tmp], dim=-1)
+            # feed to GCN
             dct_out_tmp = self.gcn(dct_in_tmp)
-            out_gcn = torch.matmul(idct_m[:, :dct_n].unsqueeze(dim=0),
-                                   dct_out_tmp[:, :, :dct_n].transpose(1, 2))
+            out_gcn = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
+                                   dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
             outputs.append(out_gcn.unsqueeze(2))
+            
             if itera > 1:
                 # update key-value query
-                out_tmp = out_gcn.clone()[:, 0 - output_n:]
+                out_tmp = out_gcn.clone()[:, 0 - self.target_seq_len:]
                 src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
 
-                vn = 1 - 2 * self.kernel_size - output_n
-                vl = self.kernel_size + output_n
+                vn = 1 - 2 * self.kernel_size - self.target_seq_len
+                vl = self.kernel_size + self.target_seq_len
                 idx_dct = np.expand_dims(np.arange(vl), axis=0) + \
-                          np.expand_dims(np.arange(vn, -self.kernel_size - output_n + 1), axis=1)
+                          np.expand_dims(np.arange(vn, -self.kernel_size - self.target_seq_len + 1), axis=1)
 
                 src_key_tmp = src_tmp[:, idx_dct[0, :-1]].transpose(1, 2)
                 key_new = self.convK(src_key_tmp / 1000.0)
@@ -186,14 +184,16 @@ class DCT_ATT_GCN(BaseModel):
 
                 src_dct_tmp = src_tmp[:, idx_dct].clone().reshape(
                     [bs * self.kernel_size, vl, -1])
-                src_dct_tmp = torch.matmul(dct_m[:dct_n].unsqueeze(dim=0), src_dct_tmp).reshape(
-                    [bs, self.kernel_size, dct_n, -1]).transpose(2, 3).reshape(
+                src_dct_tmp = torch.matmul(dct_m[:self.n_dct_freq].unsqueeze(dim=0), src_dct_tmp).reshape(
+                    [bs, self.kernel_size, self.n_dct_freq, -1]).transpose(2, 3).reshape(
                     [bs, self.kernel_size, -1])
                 src_value_tmp = torch.cat([src_value_tmp, src_dct_tmp], dim=1)
 
                 src_query_tmp = src_tmp[:, -self.kernel_size:].transpose(1, 2)
 
         outputs = torch.cat(outputs, dim=2)
+        print(outputs.shape)
+        raise ValueError("stop here")
         return outputs
         
         
