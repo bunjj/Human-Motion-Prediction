@@ -3,6 +3,7 @@ Helper functions to compute evaluation metrics.
 
 Copyright ETH Zurich, Manuel Kaufmann
 """
+from typing import ValuesView
 import cv2
 import copy
 import numpy as np
@@ -14,6 +15,7 @@ from fk import SMPL_PARENTS
 from fk import sparse_to_full
 from fk import local_rot_to_global
 
+from utils import axangle2rotmat
 
 def eye(n, batch_shape):
     iden = np.zeros(np.concatenate([batch_shape, [n, n]]))
@@ -101,13 +103,14 @@ class MetricsEngine(object):
     Compute and aggregate various motion metrics. It keeps track of the metric values per frame, so that we can
     evaluate them for different sequence lengths. It assumes that inputs are in rotation matrix format.
     """
-    def __init__(self, target_lengths):
+    def __init__(self, target_lengths, repr='rotmat'):
         """
         Initializer.
         Args:
             target_lengths: List of target sequence lengths that should be evaluated.
         """
         self.target_lengths = target_lengths
+        self.repr = repr
         self.all_summaries_op = None
         self.n_samples = 0
         self._should_call_reset = False  # a guard to avoid stupid mistakes
@@ -134,6 +137,14 @@ class MetricsEngine(object):
             A dictionary {"joint_angle" -> values} where the values are given per batch entry and frame as an np array
             of shape (n, seq_length).
         """
+
+        if self.repr == "axangle":
+            predictions = axangle2rotmat(predictions)
+            targets = axangle2rotmat(targets)
+
+        elif self.repr != "rotmat":
+            raise ValueError(f"Unkown representation: {self.repr}")
+
         assert predictions.shape[-1] % 9 == 0, "predictions are not rotation matrices"
         assert targets.shape[-1] % 9 == 0, "targets are not rotation matrices"
         assert reduce_fn in ["mean", "sum"]
