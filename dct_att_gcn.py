@@ -140,60 +140,43 @@ class DCT_ATT_GCN(BaseModel):
         
         
         idx = list(range(-self.kernel_size, 0, 1)) + [-1] * self.target_seq_len
-        outputs = []
+
 
         #key_tmp = self.convK(src_key_tmp / 1000.0)
         #allpying flattening function
         key_tmp = self.convK(src_key_tmp)
-        for i in range(self.itera):
-            #query_tmp = self.convQ(src_query_tmp / 1000.0)
-            #allpying flattening function
-            query_tmp = self.convQ(src_query_tmp)
-            
-            score_tmp = torch.matmul(query_tmp.transpose(1, 2), key_tmp) + 1e-15
-            
-            att_tmp = score_tmp / (torch.sum(score_tmp, dim=2, keepdim=True))
-            
-            dct_att_tmp = torch.matmul(att_tmp, src_value_tmp)[:, 0].reshape([batch_size, -1, self.n_dct_freq])
-            
-            input_gcn = src_tmp[:, idx]
-            # create dct of X_(N-M+1:N+T), where X_(N+1:N+T) = X_N
-            dct_in_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), input_gcn).transpose(1, 2)
-            # the weighted sum of the values are concatenated with the DCT coefficients of the last observed sub-sequence
-            dct_in_tmp = torch.cat([dct_in_tmp, dct_att_tmp], dim=-1)
-            # feed to GCN
-            dct_out_tmp = self.gcn(dct_in_tmp)
-            out_gcn = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
-                                   dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
-            print(out_gcn.shape)
-            print(out_gcn.unsqueeze(2).shape)
-            outputs.append(out_gcn.unsqueeze(2))
-            
-#            if self.itera > 1:
-#                # update key-value query
-#                out_tmp = out_gcn.clone()[:, 0 - self.target_seq_len:]
-#                src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
-#
-#                vn = 1 - 2 * self.kernel_size - self.target_seq_len
-#                vl = self.kernel_size + self.target_seq_len
-#                idx_dct = np.expand_dims(np.arange(vl), axis=0) + \
-#                          np.expand_dims(np.arange(vn, -self.kernel_size - self.target_seq_len + 1), axis=1)
-#
-#                src_key_tmp = src_tmp[:, idx_dct[0, :-1]].transpose(1, 2)
-#                key_new = self.convK(src_key_tmp / 1000.0)
-#                key_tmp = torch.cat([key_tmp, key_new], dim=2)
-#
-#                src_dct_tmp = src_tmp[:, idx_dct].clone().reshape(
-#                    [bs * self.kernel_size, vl, -1])
-#                src_dct_tmp = torch.matmul(dct_m[:self.n_dct_freq].unsqueeze(dim=0), src_dct_tmp).reshape(
-#                    [bs, self.kernel_size, self.n_dct_freq, -1]).transpose(2, 3).reshape(
-#                    [bs, self.kernel_size, -1])
-#                src_value_tmp = torch.cat([src_value_tmp, src_dct_tmp], dim=1)
-#
-#                src_query_tmp = src_tmp[:, -self.kernel_size:].transpose(1, 2)
 
-        outputs = torch.cat(outputs, dim=2)
-        print(outputs.shape)
+        #query_tmp = self.convQ(src_query_tmp / 1000.0)
+        #allpying flattening function
+        query_tmp = self.convQ(src_query_tmp)
+        
+        score_tmp = torch.matmul(query_tmp.transpose(1, 2), key_tmp) + 1e-15
+        
+        att_tmp = score_tmp / (torch.sum(score_tmp, dim=2, keepdim=True))
+        
+        dct_att_tmp = torch.matmul(att_tmp, src_value_tmp)[:, 0].reshape([batch_size, -1, self.n_dct_freq])
+        
+        input_gcn = src_tmp[:, idx]
+        # create dct of X_(N-M+1:N+T), where X_(N+1:N+T) = X_N
+        dct_in_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), input_gcn).transpose(1, 2)
+        # the weighted sum of the values are concatenated with the DCT coefficients of the last observed sub-sequence
+        dct_in_tmp = torch.cat([dct_in_tmp, dct_att_tmp], dim=-1)
+        # feed to GCN
+        dct_out_tmp = self.gcn(dct_in_tmp)
+        
+        output_series = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
+                               dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
+        
+        print(output_series.shape)
+        print(output_series[:, self.kernel_size:, :].shape)
+
+        if self.training:
+            model_out['predictions'] = output_series
+        else:
+            model_out['predictions'] = output_series[:, self.kernel_size:, :]
+
+        return model_out
+
         
         raise ValueError("stop here")
         return outputs
