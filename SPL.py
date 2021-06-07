@@ -135,6 +135,7 @@ class SPL(BaseModel):
                 inp = inp.detach()
                 
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
+            state = self.relu(state)
             (state_h, state_c) = self.cell(state, (state_h, state_c))
             l_hip =  self.l_hip(state_h)
             r_hip = self.r_hip(state_h)
@@ -195,7 +196,7 @@ class SPL(BaseModel):
         #print("all_predictions " + str(all_predictions.shape))
         #print("all_targets " + str(all_targets.shape))
 
-        total_loss = loss_pose_joint_sum(all_predictions, all_targets)
+        total_loss = loss_pose_joint_sum_squared(all_predictions, all_targets)
         #print(total_loss)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
