@@ -168,7 +168,7 @@ class DCT_ATT_GCN(BaseModel):
                                    dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
             outputs.append(out_gcn.unsqueeze(2))
             
-            if itera > 1:
+            if self.itera > 1:
                 # update key-value query
                 out_tmp = out_gcn.clone()[:, 0 - self.target_seq_len:]
                 src_tmp = torch.cat([src_tmp, out_tmp], dim=1)
