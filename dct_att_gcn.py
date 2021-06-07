@@ -166,9 +166,6 @@ class DCT_ATT_GCN(BaseModel):
         
         output_series = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
                                dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
-        
-        print(output_series.shape)
-        print(output_series[:, self.kernel_size:, :].shape)
 
         if self.training:
             model_out['predictions'] = output_series
@@ -186,7 +183,7 @@ class DCT_ATT_GCN(BaseModel):
         """
         predictions = model_out['predictions']
         print(predictions.shape)
-        targets = batch.poses[:, -(self.kernel_size + self.target_seq_len), :]
+        targets = batch.poses[:, -(self.kernel_size + self.target_seq_len):, :]
         print(targets.shape)
 
         total_loss = avg_l1(predictions, targets)
