@@ -81,6 +81,9 @@ class Configuration(object):
         parser.add_argument('--bs_train', type=int, default=16, help='Batch size for the training set.')
         parser.add_argument('--bs_eval', type=int, default=16, help='Batch size for valid/test set.')
         parser.add_argument('--nr_dct_dim', type=int, default=20, help='number od dct dimension')
+        parser.add_argument('--loss_type', type=str, choices={"mse", "rmse", "per_joint", "avg_l1" }, default="mse", help='Type of loss')
+
+
 
         config = parser.parse_args()
         return Configuration(vars(config))

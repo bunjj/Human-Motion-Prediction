@@ -21,6 +21,7 @@ class BaseModel(nn.Module):
         self.pose_size = config.pose_size
         self.create_model()
         self.is_test = False
+        self.loss_fun = None
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
@@ -156,7 +157,7 @@ class RNN(BaseModel):
         # print('targets shape:' + str(targets[0].shape))
         # print('preall_prediction shape:' +  str(all_predictions[0].shape))
         # print('all_targets shape:' + str(all_targets[0].shape))
-        total_loss = mse(all_predictions, all_targets)
+        total_loss = self.loss_fun(all_predictions, all_targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
