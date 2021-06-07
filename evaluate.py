@@ -8,6 +8,8 @@ import numpy as np
 import os
 import pandas as pd
 import torch
+import collections
+import time
 import utils as U
 
 from configuration import Configuration
@@ -20,6 +22,7 @@ from models import create_model
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from visualize import Visualizer
+from motion_metrics import MetricsEngine
 
 
 def _export_results(eval_result, output_file):
@@ -66,6 +69,10 @@ def load_model_weights(checkpoint_file, net, state_key='model_state_dict'):
     ckpt = checkpoint[state_key]
     net.load_state_dict(ckpt)
 
+    iteration = checkpoint['iteration']
+    epoch = checkpoint['epoch']
+    return iteration, epoch
+
 
 def get_model_config(model_id):
     model_id = model_id
@@ -83,10 +90,55 @@ def load_model(model_id):
 
     # Load model weights.
     checkpoint_file = os.path.join(model_dir, 'model.pth')
-    load_model_weights(checkpoint_file, net)
+    iteration, epoch = load_model_weights(checkpoint_file, net)
     print('Loaded weights from {}'.format(checkpoint_file))
 
-    return net, model_config, model_dir
+    return net, model_config, model_dir, (iteration, epoch)
+
+
+def _evaluate(net, data_loader, metrics_engine):
+    """
+    NOTE: this is a copy of the same function in train.py
+    Evaluate a model on the given dataset. This computes the loss, but does not do any backpropagation or gradient
+    update.
+    :param net: The model to evaluate.
+    :param data_loader: The dataset.
+    :param metrics_engine: MetricsEngine to compute metrics.
+    :return: The loss value.
+    """
+    # Put the model in evaluation mode.
+    net.eval()
+
+    # Some book-keeping.
+    loss_vals_agg = collections.defaultdict(float)
+    n_samples = 0
+    metrics_engine.reset()
+
+    with torch.no_grad():
+        for abatch in data_loader:
+            # Move data to GPU.
+            batch_gpu = abatch.to_gpu()
+
+            # Get the predictions.
+            model_out = net(batch_gpu)
+
+            # Compute the loss.
+            loss_vals, targets = net.backward(batch_gpu, model_out)
+
+            # Accumulate the loss and multiply with the batch size (because the last batch might have different size).
+            for k in loss_vals:
+                loss_vals_agg[k] += loss_vals[k] * batch_gpu.batch_size
+
+            # Compute metrics.
+            metrics_engine.compute_and_aggregate(model_out['predictions'], targets)
+
+            n_samples += batch_gpu.batch_size
+
+    # Compute the correct average for the entire data set.
+    for k in loss_vals_agg:
+        loss_vals_agg[k] /= n_samples
+
+    return loss_vals_agg
 
 
 def evaluate_test(model_id, viz=False):
@@ -95,22 +147,49 @@ def evaluate_test(model_id, viz=False):
     :param model_id: The ID of the model to load.
     :param viz: If some samples should be visualized.
     """
-    net, model_config, model_dir = load_model(model_id)
+    net, model_config, model_dir, (epoch, iteration) = load_model(model_id)
+    print(config)
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
     if model_config.repr == "rotmat":
+        valid_transform = transforms.Compose([ToTensor()])
         test_transform = transforms.Compose([ToTensor()])
     elif model_config.repr == "axangle":
         test_transform = transforms.Compose([LogMap(), ToTensor()])
+        valid_transform = transforms.Compose([LogMap(), ToTensor()])
     else:
         raise ValueError(f"Unkown representation: {model_config.repr}")
 
+
+    valid_data = LMDBDataset(os.path.join(C.DATA_DIR, "validation"), transform=valid_transform)
+    valid_loader = DataLoader(valid_data,
+                              batch_size=model_config.bs_eval,
+                              shuffle=False,
+                              num_workers=model_config.data_workers,
+                              collate_fn=AMASSBatch.from_sample_list)
+    
     test_data = LMDBDataset(os.path.join(C.DATA_DIR, "test"), transform=test_transform)
     test_loader = DataLoader(test_data,
                              batch_size=model_config.bs_eval,
                              shuffle=False,
                              num_workers=model_config.data_workers,
                              collate_fn=AMASSBatch.from_sample_list)
+    
+    # Evaluate on validation
+    print('Evaluate best model on validation set:')
+    start = time.time()
+    net.eval()
+    me = MetricsEngine(C.METRIC_TARGET_LENGTHS, config.repr)
+    valid_losses = _evaluate(net, valid_loader, me)
+    valid_metrics = me.get_final_metrics()
+    elapsed = time.time() - start
+    
+    loss_string = ' '.join(['{}: {:.6f}'.format(k, valid_losses[k]) for k in valid_losses])
+    print('[VALID {:0>5d} | {:0>3d}] {} elapsed: {:.3f} secs'.format(
+                    iteration + 1, epoch + 1, loss_string, elapsed))
+    print('[VALID {:0>5d} | {:0>3d}] {}'.format(
+                    iteration + 1, epoch + 1, me.get_summary_string(valid_metrics)))
+
 
     # Put the model in evaluation mode.
     net.eval()
