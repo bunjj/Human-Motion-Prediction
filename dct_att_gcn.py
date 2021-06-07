@@ -145,7 +145,6 @@ class DCT_ATT_GCN(BaseModel):
         #key_tmp = self.convK(src_key_tmp / 1000.0)
         #allpying flattening function
         key_tmp = self.convK(src_key_tmp)
-        print(key_tmp.shape)
         for i in range(self.itera):
             #query_tmp = self.convQ(src_query_tmp / 1000.0)
             #allpying flattening function
@@ -166,6 +165,7 @@ class DCT_ATT_GCN(BaseModel):
             dct_out_tmp = self.gcn(dct_in_tmp)
             out_gcn = torch.matmul(self.idct_mat[:, :self.n_dct_freq].unsqueeze(dim=0),
                                    dct_out_tmp[:, :, :self.n_dct_freq].transpose(1, 2))
+            print(out_gcn.shape)
             outputs.append(out_gcn.unsqueeze(2))
             
             if self.itera > 1:
@@ -193,6 +193,7 @@ class DCT_ATT_GCN(BaseModel):
 
         outputs = torch.cat(outputs, dim=2)
         print(outputs.shape)
+        
         raise ValueError("stop here")
         return outputs
         
