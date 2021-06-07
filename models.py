@@ -29,18 +29,21 @@ def create_model(config):
     elif config.model == 'seq2seq_lstm3':
         from Seq2Seq_LSTM3 import Seq2Seq_LSTM3
         return Seq2Seq_LSTM3(config)
-    elif config.model == "rnn":
+    elif config.model == 'rnn':
         from RNN import RNN
         return RNN(config)
-    elif config.model == "rnn2":
+    elif config.model == 'rnn2':
         from RNN2 import RNN2
         return RNN2(config)
-    elif config.model == "spl":
+    elif config.model == 'spl':
         from SPL import SPL
         return SPL(config)
     elif config.model == 'dct_gcn':
         from dct_gcn import DCT_GCN
         return DCT_GCN(config)
+    elif config.model == 'dct_att_gcn':
+        from dct_att_gcn import DCT_ATT_GCN
+        return DCT_ATT_GCN(config)
     else:
         from DummyModel import DummyModel
         return DummyModel(config)
