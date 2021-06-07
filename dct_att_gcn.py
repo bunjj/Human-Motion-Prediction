@@ -185,7 +185,9 @@ class DCT_ATT_GCN(BaseModel):
         :return: The loss values for book-keeping, as well as the targets for convenience.
         """
         predictions = model_out['predictions']
+        print(predictions.shape)
         targets = batch.poses[:, -(self.kernel_size + self.target_seq_len), :]
+        print(targets.shape)
 
         total_loss = avg_l1(predictions, targets)
 
