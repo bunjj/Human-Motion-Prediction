@@ -93,6 +93,8 @@ class Configuration(object):
         """Load configurations from a JSON file."""
         with open(json_path, 'r') as f:
             config = json.load(f)
+
+            config.setdefault('repr', 'rotmat') # set repr if not set yet
             return Configuration(config)
 
     def to_json(self, json_path):
@@ -100,3 +102,6 @@ class Configuration(object):
         with open(json_path, 'w') as f:
             s = json.dumps(vars(self), indent=2, sort_keys=True)
             f.write(s)
+
+    def update(self, adict):
+        self.__dict__.update(adict)

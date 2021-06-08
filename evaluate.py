@@ -86,7 +86,8 @@ def load_model(model_id):
     net = create_model(model_config)
 
     net.to(C.DEVICE)
-    print('Model created with {} trainable parameters'.format(U.count_parameters(net)))
+    print('Model created with {} trainable parameters and config \n{}'.format(
+        U.count_parameters(net), model_config))
 
     # Load model weights.
     checkpoint_file = os.path.join(model_dir, 'model.pth')
@@ -148,7 +149,6 @@ def evaluate_test(model_id, viz=False):
     :param viz: If some samples should be visualized.
     """
     net, model_config, model_dir, (epoch, iteration) = load_model(model_id)
-    print(config)
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
     if model_config.repr == "rotmat":
@@ -176,10 +176,10 @@ def evaluate_test(model_id, viz=False):
                              collate_fn=AMASSBatch.from_sample_list)
     
     # Evaluate on validation
-    print('Evaluate best model on validation set:')
+    print('Evaluate model on validation set:')
     start = time.time()
     net.eval()
-    me = MetricsEngine(C.METRIC_TARGET_LENGTHS, config.repr)
+    me = MetricsEngine(C.METRIC_TARGET_LENGTHS, model_config.repr)
     valid_losses = _evaluate(net, valid_loader, me)
     valid_metrics = me.get_final_metrics()
     elapsed = time.time() - start
@@ -189,7 +189,10 @@ def evaluate_test(model_id, viz=False):
                     iteration + 1, epoch + 1, loss_string, elapsed))
     print('[VALID {:0>5d} | {:0>3d}] {}'.format(
                     iteration + 1, epoch + 1, me.get_summary_string(valid_metrics)))
-
+    
+    # add validation metrics to config
+    model_config.update(me.to_dict(valid_metrics, 'valid'))
+    model_config.to_json(os.path.join(model_dir, 'config.json'))
 
     # Put the model in evaluation mode.
     net.eval()
@@ -232,6 +235,6 @@ def evaluate_test(model_id, viz=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_id', required=True, help='Which model to evaluate.')
-    config = parser.parse_args()
-    evaluate_test(config.model_id, viz=True)
+    args = parser.parse_args()
+    evaluate_test(args.model_id, viz=True)
 
