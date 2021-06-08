@@ -51,6 +51,20 @@ def count_parameters(net):
     """Count number of trainable parameters in `net`."""
     return sum(p.numel() for p in net.parameters() if p.requires_grad)
 
+def get_dct_matrix(N):
+    """
+    Construct DCT and IDCT matrice for (inverse) discrete cosine transform.
+    Adapted from https://github.com/wei-mao-2019/LearnTrajDep/blob/master/utils/data_utils.py#L781
+    """
+    dct_m = np.eye(N)
+    for k in np.arange(N):
+        for i in np.arange(N):
+            w = np.sqrt(2 / N)
+            if k == 0:
+                w = np.sqrt(1 / N)
+            dct_m[k, i] = w * np.cos(np.pi * (i + 1 / 2) * k / N)
+    idct_m = np.linalg.inv(dct_m)
+    return dct_m, idct_m
 
 def rotmat2axangle(rotmats):
     """Transform rotation matrix to axis angle representation."""

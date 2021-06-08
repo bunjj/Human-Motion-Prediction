@@ -76,9 +76,14 @@ class Configuration(object):
         parser.add_argument('--use_lr_decay', help='Use LR decay', action = "store_true")
         parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')
         parser.add_argument('--lr_decay_step', type=float, default=1000, help='Learning rate decay step.')
+        parser.add_argument('--clip_gradient', help='Use gradient clipping to l2 norm of 1', action = "store_true")
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
         parser.add_argument('--bs_train', type=int, default=16, help='Batch size for the training set.')
         parser.add_argument('--bs_eval', type=int, default=16, help='Batch size for valid/test set.')
+        parser.add_argument('--nr_dct_dim', type=int, default=20, help='number od dct dimension')
+        parser.add_argument('--loss_type', type=str, choices={"mse", "rmse", "per_joint", "avg_l1" }, default="mse", help='Type of loss')
+
+
 
         config = parser.parse_args()
         return Configuration(vars(config))

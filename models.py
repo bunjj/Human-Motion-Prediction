@@ -5,6 +5,7 @@ Copyright ETH Zurich, Manuel Kaufmann
 """
 import torch
 import torch.nn as nn
+from torch.nn.functional import max_pool1d
 
 from data import AMASSBatch
 from losses import mse
@@ -40,6 +41,9 @@ def create_model(config):
     elif config.model == "spl":
         from SPL import SPL
         return SPL(config)
+    elif config.model == 'dct_gcn':
+        from dct_gcn import DCT_GCN
+        return DCT_GCN(config)
     else:
         from DummyModel import DummyModel
         return DummyModel(config)

@@ -17,6 +17,7 @@ from configuration import Configuration
 from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
+import losses
 from data_transforms import ToTensor, LogMap, ExtractWindow
 from evaluate import evaluate_test
 from models import create_model
@@ -137,6 +138,17 @@ def main(config):
 
     # Create the model.
     net = create_model(config)
+    # Define loss function "rmse", "per_joint", "avg_l1"
+    if config.loss_type == "rmse":
+        net.loss_fun = losses.rmse
+    elif config.loss_type == "per_joint":
+        net.loss_fun = losses.loss_pose_joint_sum
+    elif config.loss_type == "avg_l1":
+        net.loss_fun = losses.avg_l1
+    else:
+        net.loss_fun = losses.mse
+        
+    # Put model to correct device
     net.to(C.DEVICE)
     print('Model created with {} trainable parameters'.format(U.count_parameters(net)))
 
@@ -180,8 +192,9 @@ def main(config):
                                                     step_size=config.lr_decay_step,
                                                     gamma=config.lr_decay_rate,
                                                     last_epoch=-1)
-    
-    
+    print("network parameters:")
+    for k,v in (vars(net)).items():
+        print(f'{k}={v}')
     
     # Training loop.
     global_step = 0
@@ -201,6 +214,9 @@ def main(config):
             train_losses, targets = net.backward(batch_gpu, model_out)
 
             # Update params.
+            if config.clip_gradient:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1)
+
             optimizer.step()
 
             if config.use_lr_decay:
