@@ -35,6 +35,11 @@ def get_model_dirs(experiment_dir, model_id):
     """Return the directory in `experiment_dir` that contains the given `model_id` string."""
     model_dirs = glob.glob(os.path.join(experiment_dir, str(model_id) + "-*"), recursive=False)
     return None if len(model_dirs) == 0 else model_dirs
+    
+def get_all_model_dirs(experiment_dir):
+    """Return the directory in `experiment_dir` that contains the given `model_id` string."""
+    model_dirs = glob.glob(os.path.join(experiment_dir,"*"), recursive=False)
+    return None if len(model_dirs) == 0 else model_dirs
 
 def export_code(file_list, output_file):
     """Stores files in a zip."""

@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 import collections
 import time
+import glob
 import utils as U
 
 from configuration import Configuration
@@ -240,7 +241,10 @@ if __name__ == '__main__':
     parser.add_argument('--viz', action='store_true', help='Visualize results.')
     args = parser.parse_args()
 
-    model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
+    if config.model_id == "all":
+        model_dirs = U.get_all_model_dirs(C.EXPERIMENT_DIR)
+    else:
+        model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
 
     for model_dir in model_dirs:
         print(f'Processing {model_dir}')
