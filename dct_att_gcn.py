@@ -59,7 +59,8 @@ class DCT_ATT_GCN(BaseModel):
         self.input_size     = config.pose_size
         #self.n_dct_freq     = config.nr_dct_dim
         
-        self.kernel_size    = 10   # Mao20 default param
+        #self.kernel_size    = 10   # Mao20 default param
+        self.kernel_size    = config.kernel_size
         self.hidden_feature = 256  # Mao20 default param
         self.gcn_p_dropout  = 0.3  # Mao20 default param
         self.gcn_num_stage  = 12   # Mao20 default param
@@ -132,22 +133,22 @@ class DCT_ATT_GCN(BaseModel):
         
         idx_subsequences = np.expand_dims(np.arange(vl), axis=0) + np.expand_dims(np.arange(vn), axis=1)
               
-        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1]) # [1392, 34, 135]
+        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1]) # [1392, ks, 135]
         
-        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp) # to DCT --> [1392, 34, 135]
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1]) # [bs,87,34, 135]
-        src_value_tmp = src_value_tmp.transpose(2, 3) # [bs,87,135,34]
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [bs,87,135*34]
+        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp) # to DCT --> [1392, ks, 135]
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1]) # [bs,87,ks, 135]
+        src_value_tmp = src_value_tmp.transpose(2, 3) # [bs,87,135,ks]
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [bs,87,135*ks]
         
         
         idx = list(range(-self.kernel_size, 0, 1)) + [-1] * self.target_seq_len
 
 
-        #key_tmp = self.convK(src_key_tmp / 1000.0)
+        #key_tmp = self.convK(src_key_tmp / 1000.0)????
         #allpying flattening function
         key_tmp = self.convK(src_key_tmp)
 
-        #query_tmp = self.convQ(src_query_tmp / 1000.0)
+        #query_tmp = self.convQ(src_query_tmp / 1000.0)????
         #allpying flattening function
         query_tmp = self.convQ(src_query_tmp)
         
