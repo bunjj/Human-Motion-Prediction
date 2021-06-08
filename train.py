@@ -216,7 +216,7 @@ def main(config):
 
             # Update params.
             if config.clip_gradient:
-                torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1)
+                torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=config.max_norm)
 
             optimizer.step()
 
