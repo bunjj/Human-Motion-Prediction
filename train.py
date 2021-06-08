@@ -274,7 +274,7 @@ def main(config):
 
     # After the training, evaluate the model on the test and generate the result file that can be uploaded to the
     # submission system. The submission file will be stored in the model directory.
-    evaluate_test(experiment_id)
+    evaluate_test(model_dir)
 
 
 if __name__ == '__main__':

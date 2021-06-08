@@ -74,15 +74,13 @@ def load_model_weights(checkpoint_file, net, state_key='model_state_dict'):
     return iteration, epoch
 
 
-def get_model_config(model_id):
-    model_id = model_id
-    model_dir = U.get_model_dir(C.EXPERIMENT_DIR, model_id)
+def get_model_config(model_dir):
     model_config = Configuration.from_json(os.path.join(model_dir, 'config.json'))
-    return model_config, model_dir
+    return model_config
 
 
-def load_model(model_id):
-    model_config, model_dir = get_model_config(model_id)
+def load_model(model_dir):
+    model_config = get_model_config(model_dir)
     net = create_model(model_config)
 
     net.to(C.DEVICE)
@@ -142,13 +140,14 @@ def _evaluate(net, data_loader, metrics_engine):
     return loss_vals_agg
 
 
-def evaluate_test(model_id, predict=True, viz=False):
+def evaluate_test(model_dir, predict=True, viz=False):
     """
     Load a model, evaluate it on the test set and save the predictions into the model directory.
-    :param model_id: The ID of the model to load.
+    :param model_dir: The directory of the model to load.
     :param viz: If some samples should be visualized.
     """
-    net, model_config, model_dir, (epoch, iteration) = load_model(model_id)
+    assert os.path.isdir(model_dir), "model_dir is not a directory"
+    net, model_config, model_dir, (epoch, iteration) = load_model(model_dir)
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
     if model_config.repr == "rotmat":
@@ -236,8 +235,14 @@ def evaluate_test(model_id, predict=True, viz=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_id', required=True, help='Which model to evaluate.')
+    parser.add_argument('--model_id', required=True, help='Which models to evaluate.')
     parser.add_argument('--no_predict', action='store_true', help='Do not compute predictions for test data.')
+    parser.add_argument('--viz', action='store_true', help='Visualize results.')
     args = parser.parse_args()
-    evaluate_test(args.model_id, predict=(not args.no_predict), viz=True)
+
+    model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
+
+    for model_dir in model_dirs:
+        print(f'Processing {model_dir}')
+        evaluate_test(model_dir, predict=(not args.no_predict), viz=args.viz)
 
