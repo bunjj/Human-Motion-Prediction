@@ -97,14 +97,13 @@ class Configuration(object):
             # all new flags if flag not seen yet set to default
             config.setdefault('model', 'dummy')
             config.setdefault('repr', 'rotmat')
-            config.setdefault('model', 'dummy')
             config.setdefault('opt', 'sgd')
             config.setdefault('use_lr_decay', False)
             config.setdefault('lr_decay_rate', 0.98)
             config.setdefault('lr_decay_step', 1000)
             config.setdefault('clip_gradient', False)
             config.setdefault('nr_dct_dim', 20)
-            config.setdefault('nr_dct_dim', 'mse')
+            config.setdefault('loss_type', 'mse')
             
             return Configuration(config)
 
