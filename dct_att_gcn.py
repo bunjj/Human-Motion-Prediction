@@ -62,7 +62,7 @@ class DCT_ATT_GCN(BaseModel):
         self.kernel_size    = 10   # Mao20 default param
         self.hidden_feature = 256  # Mao20 default param
         self.gcn_p_dropout  = 0.3  # Mao20 default param
-        self.gcn_num_stage  = 12    # Mao20 default param
+        self.gcn_num_stage  = 12   # Mao20 default param
         self.itera          = 1    # Mao20 default param
         
         self.n_dct_freq     = self.kernel_size + config.target_seq_len # M + T Mao20 default param
