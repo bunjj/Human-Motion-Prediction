@@ -142,7 +142,7 @@ def _evaluate(net, data_loader, metrics_engine):
     return loss_vals_agg
 
 
-def evaluate_test(model_id, viz=False):
+def evaluate_test(model_id, predict=True, viz=False):
     """
     Load a model, evaluate it on the test set and save the predictions into the model directory.
     :param model_id: The ID of the model to load.
@@ -194,33 +194,35 @@ def evaluate_test(model_id, viz=False):
     model_config.update(me.to_dict(valid_metrics, 'valid'))
     model_config.to_json(os.path.join(model_dir, 'config.json'))
 
-    # Put the model in evaluation mode.
-    net.eval()
-    net.is_test = True
-    results = dict()
-    with torch.no_grad():
-        for abatch in test_loader:
-            # Move data to GPU.
-            batch_gpu = abatch.to_gpu()
 
-            # Get the predictions.
-            model_out = net(batch_gpu)
+    if predict:
+        # Put the model in evaluation mode.
+        net.eval()
+        net.is_test = True
+        results = dict()
+        with torch.no_grad():
+            for abatch in test_loader:
+                # Move data to GPU.
+                batch_gpu = abatch.to_gpu()
 
-            for b in range(abatch.batch_size):
+                # Get the predictions.
+                model_out = net(batch_gpu)
 
-                predictions = model_out['predictions'][b].detach().cpu().numpy()
-                seed = model_out['seed'][b].detach().cpu().numpy()
+                for b in range(abatch.batch_size):
 
-                if model_config.repr == 'axangle':
-                    predictions = U.axangle2rotmat(predictions)
-                    seed = U.axangle2rotmat(seed)
+                    predictions = model_out['predictions'][b].detach().cpu().numpy()
+                    seed = model_out['seed'][b].detach().cpu().numpy()
 
-                results[batch_gpu.seq_ids[b]] = (predictions, seed)
+                    if model_config.repr == 'axangle':
+                        predictions = U.axangle2rotmat(predictions)
+                        seed = U.axangle2rotmat(seed)
 
-    fname = 'predictions_in{}_out{}.csv'.format(model_config.seed_seq_len, model_config.target_seq_len)
-    _export_results(results, os.path.join(model_dir, fname))
+                    results[batch_gpu.seq_ids[b]] = (predictions, seed)
 
-    if viz:
+        fname = 'predictions_in{}_out{}.csv'.format(model_config.seed_seq_len, model_config.target_seq_len)
+        _export_results(results, os.path.join(model_dir, fname))
+
+    if predict and viz:
         fk_engine = SMPLForwardKinematics()
         visualizer = Visualizer(fk_engine)
         n_samples_viz = 10
@@ -235,6 +237,7 @@ def evaluate_test(model_id, viz=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_id', required=True, help='Which model to evaluate.')
+    parser.add_argument('--no_predict', action='store_true', help='Do not compute predictions for test data.')
     args = parser.parse_args()
-    evaluate_test(args.model_id, viz=True)
+    evaluate_test(args.model_id, predict=(not args.no_predict), viz=True)
 
