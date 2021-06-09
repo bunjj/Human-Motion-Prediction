@@ -160,9 +160,6 @@ def evaluate_test(model_dir, predict=True, viz=False):
     else:
         net.loss_fun = losses.mse
     
-    print(model_config)
-    print(epoch, iteration)
-    
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
     if model_config.repr == "rotmat":
