@@ -60,6 +60,7 @@ class DCT_ATT_GCN(BaseModel):
         #self.n_dct_freq     = config.nr_dct_dim
         
         #self.kernel_size    = 10   # Mao20 default param
+        assert config.kernel_size % 2 == 0
         self.kernel_size    = config.kernel_size
         self.hidden_feature = 256  # Mao20 default param
         self.gcn_p_dropout  = 0.3  # Mao20 default param
@@ -81,23 +82,24 @@ class DCT_ATT_GCN(BaseModel):
         
         self.convQ = nn.Sequential(nn.Conv1d(in_channels=self.input_size,
                                              out_channels=self.hidden_feature,
-                                             kernel_size=6,
+                                             kernel_size=(self.kernel_size//2 + 1),
                                              bias=False),
                                    nn.ReLU(),
                                    nn.Conv1d(in_channels=self.hidden_feature,
                                              out_channels=self.hidden_feature,
-                                             kernel_size=5,
+                                             kernel_size=(self.kernel_size//2),
                                              bias=False),
                                    nn.ReLU())
-
+        #k1 = (M+T)/2 + 1
+        #k2 = (M+T)/2
         self.convK = nn.Sequential(nn.Conv1d(in_channels=self.input_size,
                                              out_channels=self.hidden_feature,
-                                             kernel_size=6,
+                                             kernel_size=(self.kernel_size//2 + 1),
                                              bias=False),
                                    nn.ReLU(),
                                    nn.Conv1d(in_channels=self.hidden_feature,
                                              out_channels=self.hidden_feature,
-                                             kernel_size=5,
+                                             kernel_size=(self.kernel_size//2),
                                              bias=False),
                                    nn.ReLU())
     
@@ -125,6 +127,7 @@ class DCT_ATT_GCN(BaseModel):
         # => (batchsize, self.seed_seq_len, N_JOINT * DOF)
         
         src_key_tmp   = src_tmp.transpose(1, 2)[:, :, :(self.seed_seq_len - self.target_seq_len)].clone()
+        
         src_query_tmp = src_tmp.transpose(1, 2)[:, :, -self.kernel_size:].clone()
         
         vn = self.seed_seq_len - self.kernel_size - self.target_seq_len + 1
@@ -133,12 +136,12 @@ class DCT_ATT_GCN(BaseModel):
         
         idx_subsequences = np.expand_dims(np.arange(vl), axis=0) + np.expand_dims(np.arange(vn), axis=1)
               
-        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1]) # [1392, ks, 135]
+        src_value_tmp = src_tmp[:, idx_subsequences].clone().reshape([batch_size * vn, vl, -1])
         
-        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp) # to DCT --> [1392, ks, 135]
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1]) # [bs,87,ks, 135]
-        src_value_tmp = src_value_tmp.transpose(2, 3) # [bs,87,135,ks]
-        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])  # [bs,87,135*ks]
+        src_value_tmp = torch.matmul(self.dct_mat[:self.n_dct_freq].unsqueeze(dim=0), src_value_tmp) # to DCT
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, self.n_dct_freq, -1])
+        src_value_tmp = src_value_tmp.transpose(2, 3)
+        src_value_tmp = src_value_tmp.reshape([batch_size, vn, -1])
         
         
         idx = list(range(-self.kernel_size, 0, 1)) + [-1] * self.target_seq_len
