@@ -62,7 +62,6 @@ class Seq2Seq_LSTM2(BaseModel):
     def create_model(self):
         self.cell1 = nn.LSTMCell(self.input_size, self.rnn_size, bias=False)
         self.cell2 = nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False)
-        self.cell3 = nn.LSTMCell(self.rnn_size, self.rnn_size, bias=False)
         self.fc1 = nn.Linear(self.rnn_size, self.config.pose_size)
 
     def forward(self, batch: AMASSBatch):
