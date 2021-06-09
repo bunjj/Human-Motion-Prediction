@@ -204,7 +204,6 @@ def main(config):
         for i, abatch in enumerate(train_loader):
             start = time.time()
             optimizer.zero_grad()
-
             # Move data to GPU.
             batch_gpu = abatch.to_gpu()
 
@@ -274,7 +273,7 @@ def main(config):
 
     # After the training, evaluate the model on the test and generate the result file that can be uploaded to the
     # submission system. The submission file will be stored in the model directory.
-    evaluate_test(experiment_id)
+    evaluate_test(model_dir)
 
 
 if __name__ == '__main__':

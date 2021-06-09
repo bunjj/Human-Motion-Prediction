@@ -102,6 +102,7 @@ class RNN2(BaseModel):
                 inp = inp.detach()
                 
             state = self.linear(nn.functional.dropout(inp, self.dropout, training=self.training))
+            state = self.relu(state)
             (state_h, state_c) = self.cell(state, (state_h, state_c))
 
             state = self.linear_pred_1(state_h)

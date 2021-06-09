@@ -25,6 +25,7 @@ class BaseModel(nn.Module):
         self.pose_size = config.pose_size
         self.create_model()
         self.is_test = False
+
         self.loss_fun = None
 
     # noinspection PyAttributeOutsideInit

@@ -35,6 +35,9 @@ def create_model(config):
     elif config.model == 'rnn2':
         from RNN2 import RNN2
         return RNN2(config)
+    elif config.model == 'rnn3':
+        from RNN3 import RNN3
+        return RNN3(config)
     elif config.model == 'spl':
         from SPL import SPL
         return SPL(config)

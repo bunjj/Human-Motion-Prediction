@@ -63,28 +63,27 @@ class Configuration(object):
         parser.add_argument('--eval_every', type=int, default=400, help='Evaluate validation set every so many iters.')
         parser.add_argument('--tag', default='', help='A custom tag for this experiment.')
         parser.add_argument('--seed', type=int, default=None, help='Random number generator seed.')
-        parser.add_argument('--model', type=str, default=None, help='Defines the model to train on.')
+        parser.add_argument('--model', type=str, default=None, help='Defines the model to train on.')#new
 
         # Data.
         parser.add_argument('--seed_seq_len', type=int, default=120, help='Number of frames for the seed length.')
         parser.add_argument('--target_seq_len', type=int, default=24, help='How many frames to predict.')
 
         # Learning configurations.
-        parser.add_argument('--repr', type=str, choices={'rotmat', 'axangle'}, default='rotmat', help='Representation to which the data should be transformed')
-        parser.add_argument('--opt', type=str, choices={"adam", "sgd"}, default="sgd", help='Type of optimizer')
+        parser.add_argument('--repr', type=str, choices={'rotmat', 'axangle'}, default='rotmat', help='Representation to which the data should be transformed')#new
+        parser.add_argument('--opt', type=str, choices={"adam", "sgd"}, default="sgd", help='Type of optimizer') #new
         parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
-        parser.add_argument('--use_lr_decay', help='Use LR decay', action = "store_true")
-        parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')
-        parser.add_argument('--lr_decay_step', type=float, default=1000, help='Learning rate decay step.')
-        parser.add_argument('--clip_gradient', help='Use gradient clipping to l2 norm of 1', action = "store_true")
-        parser.add_argument('--max_norm', type=float, default=1,help='max norm for gradient clipping')
+        parser.add_argument('--use_lr_decay', help='Use LR decay', action = "store_true") #new
+        parser.add_argument('--lr_decay_rate', type=float, default=0.98, help='Learning rate decay rate.')#new
+        parser.add_argument('--lr_decay_step', type=float, default=1000, help='Learning rate decay step.')#new
+        parser.add_argument('--clip_gradient', help='Use gradient clipping to l2 norm max_norm', action = "store_true")#new
+        parser.add_argument('--max_norm', type=float, default=1,help='max norm for gradient clipping') #new
         parser.add_argument('--n_epochs', type=int, default=50, help='Number of epochs.')
         parser.add_argument('--bs_train', type=int, default=16, help='Batch size for the training set.')
         parser.add_argument('--bs_eval', type=int, default=16, help='Batch size for valid/test set.')
-        parser.add_argument('--nr_dct_dim', type=int, default=20, help='number of dct dimension')
-        parser.add_argument('--loss_type', type=str, choices={"mse", "rmse", "per_joint", "avg_l1" }, default="mse", help='Type of loss')
-        parser.add_argument('--kernel_size', type=int, default=10, help='number of past frames to look to predict the future')
-
+        parser.add_argument('--nr_dct_dim', type=int, default=20, help='number of dct dimension')#new
+        parser.add_argument('--loss_type', type=str, choices={"mse", "rmse", "per_joint", "avg_l1" }, default="mse", help='Type of loss')#new
+        parser.add_argument('--kernel_size', type=int, default=10, help='number of past frames to look to predict the future') # new
 
 
         config = parser.parse_args()
@@ -95,7 +94,20 @@ class Configuration(object):
         """Load configurations from a JSON file."""
         with open(json_path, 'r') as f:
             config = json.load(f)
+            
+            # all new flags if flag not seen yet set to default
+            config.setdefault('model', 'dummy')
+            config.setdefault('repr', 'rotmat')
+            config.setdefault('opt', 'sgd')
+            config.setdefault('use_lr_decay', False)
+            config.setdefault('lr_decay_rate', 0.98)
+            config.setdefault('lr_decay_step', 1000)
+            config.setdefault('clip_gradient', False)
+            config.setdefault('max_norm', 1)
+            config.setdefault('nr_dct_dim', 20)
+            config.setdefault('loss_type', 'mse')
             config.setdefault('kernel_size', 10)
+
             return Configuration(config)
 
     def to_json(self, json_path):
@@ -103,3 +115,6 @@ class Configuration(object):
         with open(json_path, 'w') as f:
             s = json.dumps(vars(self), indent=2, sort_keys=True)
             f.write(s)
+
+    def update(self, adict):
+        self.__dict__.update(adict)
