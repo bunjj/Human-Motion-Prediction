@@ -248,12 +248,17 @@ if __name__ == '__main__':
     available_models = ['Dummy', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN']
 
     if args.model_id == "all":
+        print("Evaluating all models in experiment folder")
         model_dirs = U.get_all_model_dirs(C.EXPERIMENT_DIR)
     elif args.model_id in available_models:
+        print(f"Evaluating all models of type {args.model_id}")
         model_dirs = U.get_named_model_dirs(C.EXPERIMENT_DIR, args.model_id)
     else:
+        print(f"Evaluating model with id {args.model_id}")
         model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
-
+    
+    print(model_dirs)
+    
     for model_dir in model_dirs:
         print(f'Processing {model_dir}')
         evaluate_test(model_dir, predict=(not args.no_predict), viz=args.viz)
