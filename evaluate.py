@@ -149,6 +149,10 @@ def evaluate_test(model_dir, predict=True, viz=False):
     """
     assert os.path.isdir(model_dir), "model_dir is not a directory"
     net, model_config, model_dir, (epoch, iteration) = load_model(model_dir)
+    
+    print(model_config)
+    print(epoch, iteration)
+    
 
     # No need to extract windows for the test set, since it only contains the seed sequence anyway.
     if model_config.repr == "rotmat":
@@ -240,9 +244,13 @@ if __name__ == '__main__':
     parser.add_argument('--no_predict', action='store_true', help='Do not compute predictions for test data.')
     parser.add_argument('--viz', action='store_true', help='Visualize results.')
     args = parser.parse_args()
+    
+    available_models = ['Dummy', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN']
 
     if config.model_id == "all":
         model_dirs = U.get_all_model_dirs(C.EXPERIMENT_DIR)
+    elif config.model_id in available_models:
+        model_dirs = U.get_named_model_dirs(C.EXPERIMENT_DIR)
     else:
         model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
 
