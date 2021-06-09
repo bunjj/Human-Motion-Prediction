@@ -18,6 +18,7 @@ from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
 from data_transforms import ToTensor, LogMap
+import losses
 from fk import SMPLForwardKinematics
 from models import create_model
 from torch.utils.data import DataLoader
@@ -149,6 +150,15 @@ def evaluate_test(model_dir, predict=True, viz=False):
     """
     assert os.path.isdir(model_dir), "model_dir is not a directory"
     net, model_config, model_dir, (epoch, iteration) = load_model(model_dir)
+    
+    if model_config.loss_type == "rmse":
+        net.loss_fun = losses.rmse
+    elif model_config.loss_type == "per_joint":
+        net.loss_fun = losses.loss_pose_joint_sum
+    elif model_config.loss_type == "avg_l1":
+        net.loss_fun = losses.avg_l1
+    else:
+        net.loss_fun = losses.mse
     
     print(model_config)
     print(epoch, iteration)
