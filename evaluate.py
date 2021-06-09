@@ -247,10 +247,10 @@ if __name__ == '__main__':
     
     available_models = ['Dummy', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN']
 
-    if config.model_id == "all":
+    if args.model_id == "all":
         model_dirs = U.get_all_model_dirs(C.EXPERIMENT_DIR)
-    elif config.model_id in available_models:
-        model_dirs = U.get_named_model_dirs(C.EXPERIMENT_DIR)
+    elif args.model_id in available_models:
+        model_dirs = U.get_named_model_dirs(C.EXPERIMENT_DIR, args.model_id)
     else:
         model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
 
