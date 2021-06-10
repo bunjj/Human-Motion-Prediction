@@ -8,6 +8,9 @@ import numpy as np
 import os
 import pandas as pd
 import torch
+import collections
+import time
+import glob
 import utils as U
 
 from configuration import Configuration
@@ -15,11 +18,13 @@ from configuration import CONSTANTS as C
 from data import AMASSBatch
 from data import LMDBDataset
 from data_transforms import ToTensor, LogMap
+import losses
 from fk import SMPLForwardKinematics
 from models import create_model
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from visualize import Visualizer
+from motion_metrics import MetricsEngine
 
 
 def _export_results(eval_result, output_file):
@@ -62,83 +67,174 @@ def load_model_weights(checkpoint_file, net, state_key='model_state_dict'):
     """Loads a pre-trained model."""
     if not os.path.exists(checkpoint_file):
         raise ValueError("Could not find model checkpoint {}.".format(checkpoint_file))
-    checkpoint = torch.load(checkpoint_file)
+    checkpoint = torch.load(checkpoint_file, map_location=C.DEVICE)
     ckpt = checkpoint[state_key]
     net.load_state_dict(ckpt)
 
+    iteration = checkpoint['iteration']
+    epoch = checkpoint['epoch']
+    return iteration, epoch
 
-def get_model_config(model_id):
-    model_id = model_id
-    model_dir = U.get_model_dir(C.EXPERIMENT_DIR, model_id)
+
+def get_model_config(model_dir):
     model_config = Configuration.from_json(os.path.join(model_dir, 'config.json'))
-    return model_config, model_dir
+    return model_config
 
 
-def load_model(model_id):
-    model_config, model_dir = get_model_config(model_id)
+def load_model(model_dir):
+    model_config = get_model_config(model_dir)
     net = create_model(model_config)
 
     net.to(C.DEVICE)
-    print('Model created with {} trainable parameters'.format(U.count_parameters(net)))
+    print('Model created with {} trainable parameters and config \n{}'.format(
+        U.count_parameters(net), model_config))
 
     # Load model weights.
     checkpoint_file = os.path.join(model_dir, 'model.pth')
-    load_model_weights(checkpoint_file, net)
+    iteration, epoch = load_model_weights(checkpoint_file, net)
     print('Loaded weights from {}'.format(checkpoint_file))
 
-    return net, model_config, model_dir
+    return net, model_config, model_dir, (iteration, epoch)
 
 
-def evaluate_test(model_id, viz=False):
+def _evaluate(net, data_loader, metrics_engine):
     """
-    Load a model, evaluate it on the test set and save the predictions into the model directory.
-    :param model_id: The ID of the model to load.
-    :param viz: If some samples should be visualized.
+    NOTE: this is a copy of the same function in train.py
+    Evaluate a model on the given dataset. This computes the loss, but does not do any backpropagation or gradient
+    update.
+    :param net: The model to evaluate.
+    :param data_loader: The dataset.
+    :param metrics_engine: MetricsEngine to compute metrics.
+    :return: The loss value.
     """
-    net, model_config, model_dir = load_model(model_id)
-
-    # No need to extract windows for the test set, since it only contains the seed sequence anyway.
-    if model_config.repr == "rotmat":
-        test_transform = transforms.Compose([ToTensor()])
-    elif model_config.repr == "axangle":
-        test_transform = transforms.Compose([LogMap(), ToTensor()])
-    else:
-        raise ValueError(f"Unkown representation: {model_config.repr}")
-
-    test_data = LMDBDataset(os.path.join(C.DATA_DIR, "test"), transform=test_transform)
-    test_loader = DataLoader(test_data,
-                             batch_size=model_config.bs_eval,
-                             shuffle=False,
-                             num_workers=model_config.data_workers,
-                             collate_fn=AMASSBatch.from_sample_list)
-
     # Put the model in evaluation mode.
     net.eval()
-    net.is_test = True
-    results = dict()
+
+    # Some book-keeping.
+    loss_vals_agg = collections.defaultdict(float)
+    n_samples = 0
+    metrics_engine.reset()
+
     with torch.no_grad():
-        for abatch in test_loader:
+        for abatch in data_loader:
             # Move data to GPU.
             batch_gpu = abatch.to_gpu()
 
             # Get the predictions.
             model_out = net(batch_gpu)
 
-            for b in range(abatch.batch_size):
+            # Compute the loss.
+            loss_vals, targets = net.backward(batch_gpu, model_out)
 
-                predictions = model_out['predictions'][b].detach().cpu().numpy()
-                seed = model_out['seed'][b].detach().cpu().numpy()
+            # Accumulate the loss and multiply with the batch size (because the last batch might have different size).
+            for k in loss_vals:
+                loss_vals_agg[k] += loss_vals[k] * batch_gpu.batch_size
 
-                if model_config.repr == 'axangle':
-                    predictions = U.axangle2rotmat(predictions)
-                    seed = U.axangle2rotmat(seed)
+            # Compute metrics.
+            metrics_engine.compute_and_aggregate(model_out['predictions'], targets)
 
-                results[batch_gpu.seq_ids[b]] = (predictions, seed)
+            n_samples += batch_gpu.batch_size
 
-    fname = 'predictions_in{}_out{}.csv'.format(model_config.seed_seq_len, model_config.target_seq_len)
-    _export_results(results, os.path.join(model_dir, fname))
+    # Compute the correct average for the entire data set.
+    for k in loss_vals_agg:
+        loss_vals_agg[k] /= n_samples
 
-    if viz:
+    return loss_vals_agg
+
+
+def evaluate_test(model_dir, predict=True, viz=False, update_config=True):
+    """
+    Load a model, evaluate it on the test set and save the predictions into the model directory.
+    :param model_dir: The directory of the model to load.
+    :param viz: If some samples should be visualized.
+    """
+    assert os.path.isdir(model_dir), "model_dir is not a directory"
+    net, model_config, model_dir, (epoch, iteration) = load_model(model_dir)
+    
+    if model_config.loss_type == "rmse":
+        net.loss_fun = losses.rmse
+    elif model_config.loss_type == "per_joint":
+        net.loss_fun = losses.loss_pose_joint_sum
+    elif model_config.loss_type == "avg_l1":
+        net.loss_fun = losses.avg_l1
+    else:
+        net.loss_fun = losses.mse
+    
+
+    # No need to extract windows for the test set, since it only contains the seed sequence anyway.
+    if model_config.repr == "rotmat":
+        valid_transform = transforms.Compose([ToTensor()])
+        test_transform = transforms.Compose([ToTensor()])
+    elif model_config.repr == "axangle":
+        test_transform = transforms.Compose([LogMap(), ToTensor()])
+        valid_transform = transforms.Compose([LogMap(), ToTensor()])
+    else:
+        raise ValueError(f"Unkown representation: {model_config.repr}")
+
+
+    valid_data = LMDBDataset(os.path.join(C.DATA_DIR, "validation"), transform=valid_transform)
+    valid_loader = DataLoader(valid_data,
+                              batch_size=model_config.bs_eval,
+                              shuffle=False,
+                              num_workers=model_config.data_workers,
+                              collate_fn=AMASSBatch.from_sample_list)
+    
+    test_data = LMDBDataset(os.path.join(C.DATA_DIR, "test"), transform=test_transform)
+    test_loader = DataLoader(test_data,
+                             batch_size=model_config.bs_eval,
+                             shuffle=False,
+                             num_workers=model_config.data_workers,
+                             collate_fn=AMASSBatch.from_sample_list)
+    
+    # Evaluate on validation
+    print('Evaluate model on validation set:')
+    start = time.time()
+    net.eval()
+    me = MetricsEngine(C.METRIC_TARGET_LENGTHS, model_config.repr)
+    valid_losses = _evaluate(net, valid_loader, me)
+    valid_metrics = me.get_final_metrics()
+    elapsed = time.time() - start
+    
+    loss_string = ' '.join(['{}: {:.6f}'.format(k, valid_losses[k]) for k in valid_losses])
+    print('[VALID {:0>5d} | {:0>3d}] {} elapsed: {:.3f} secs'.format(
+                    iteration + 1, epoch + 1, loss_string, elapsed))
+    print('[VALID {:0>5d} | {:0>3d}] {}'.format(
+                    iteration + 1, epoch + 1, me.get_summary_string(valid_metrics)))
+    
+    # add validation metrics to config
+    if update_config:
+        model_config.update(me.to_dict(valid_metrics, 'valid'))
+        model_config.to_json(os.path.join(model_dir, 'config.json'))
+
+
+    if predict:
+        # Put the model in evaluation mode.
+        net.eval()
+        net.is_test = True
+        results = dict()
+        with torch.no_grad():
+            for abatch in test_loader:
+                # Move data to GPU.
+                batch_gpu = abatch.to_gpu()
+
+                # Get the predictions.
+                model_out = net(batch_gpu)
+
+                for b in range(abatch.batch_size):
+
+                    predictions = model_out['predictions'][b].detach().cpu().numpy()
+                    seed = model_out['seed'][b].detach().cpu().numpy()
+
+                    if model_config.repr == 'axangle':
+                        predictions = U.axangle2rotmat(predictions)
+                        seed = U.axangle2rotmat(seed)
+
+                    results[batch_gpu.seq_ids[b]] = (predictions, seed)
+
+        fname = 'predictions_in{}_out{}.csv'.format(model_config.seed_seq_len, model_config.target_seq_len)
+        _export_results(results, os.path.join(model_dir, fname))
+
+    if predict and viz:
         fk_engine = SMPLForwardKinematics()
         visualizer = Visualizer(fk_engine)
         n_samples_viz = 10
@@ -152,7 +248,27 @@ def evaluate_test(model_id, viz=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_id', required=True, help='Which model to evaluate.')
-    config = parser.parse_args()
-    evaluate_test(config.model_id, viz=True)
+    parser.add_argument('--model_id', required=True, help='Which models to evaluate.')
+    parser.add_argument('--no_predict', action='store_true', help='Do not compute predictions for test data.')
+    parser.add_argument('--no_config_update', action='store_true', help='Do not update config of model.')
+    parser.add_argument('--viz', action='store_true', help='Visualize results.')
+    args = parser.parse_args()
+    
+    available_models = ['DummyModel', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN']
+
+    if args.model_id == "all":
+        print("Evaluating all models in experiment folder")
+        model_dirs = U.get_all_model_dirs(C.EXPERIMENT_DIR)
+    elif args.model_id in available_models:
+        print(f"Evaluating all models of type {args.model_id}")
+        model_dirs = U.get_named_model_dirs(C.EXPERIMENT_DIR, args.model_id)
+    else:
+        print(f"Evaluating model with id {args.model_id}")
+        model_dirs = U.get_model_dirs(C.EXPERIMENT_DIR, args.model_id)
+    
+    print(model_dirs)
+    
+    for model_dir in model_dirs:
+        print(f'Processing {model_dir}')
+        evaluate_test(model_dir, predict=(not args.no_predict), viz=args.viz, update_config=(not args.no_config_update))
 

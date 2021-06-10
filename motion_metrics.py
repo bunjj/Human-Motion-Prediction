@@ -262,4 +262,13 @@ class MetricsEngine(object):
         for m in metrics:
             for t in self.target_lengths:
                 metric_value = np.sum(metrics[m][:t])
-                writer.add_scalar('{}/{}/until {}'.format(m, prefix, t), metric_value, global_step)
+                writer.add_scalar('{}/{}/until {:02d}'.format(m, prefix, t), metric_value, global_step)
+
+    def to_dict(self, metrics, prefix=''):
+        """Write metrics to dictionary."""
+        out = {}
+        for m in metrics:
+            for t in self.target_lengths:
+                metric_value = np.sum(metrics[m][:t])
+                out['{}/{}/until {:02d}'.format(m, prefix, t)] = metric_value
+        return out
