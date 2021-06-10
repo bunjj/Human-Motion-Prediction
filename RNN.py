@@ -43,7 +43,7 @@ class BaseModel(nn.Module):
 
 class RNN(BaseModel):
     """
-    This models the implementation of RNN as described in
+    This models the implementation of the vanilla RNN as described in
     overly complicated but works by now
     https://ait.ethz.ch/projects/2019/spl/
     """
@@ -78,8 +78,6 @@ class RNN(BaseModel):
         model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
                      'predictions': None}
 
-        def loop_function(prev, i):
-            return prev
 
         batch_size = batch.batch_size
 
@@ -122,7 +120,6 @@ class RNN(BaseModel):
             state = self.relu(state)
             state = self.linear_r2(state)
             state = state + decoder_inputs[i]
-            # state = state.to(C.DEVICE)
             outputs.append(state.view([1, batch_size, self.pose_size]))
             all_outputs.append(state.view([1, batch_size, self.pose_size]))
 
@@ -132,13 +129,6 @@ class RNN(BaseModel):
         all_outputs = torch.transpose(all_outputs, 0,1)
         model_out['predictions'] = outputs
         model_out['training_pred'] = all_outputs
-        ##############################################
-        # previous shizzle
-        ##################3
-        # model_in = batch.poses[:, self.config.seed_seq_len-self.n_history:self.config.seed_seq_len]
-        # pred = self.dense(model_in.reshape(batch_size, -1))
-        # model_out['predictions'] = pred.reshape(batch_size, self.config.target_seq_len, -1)
-        ########################################
         return model_out
 
     def backward(self, batch: AMASSBatch, model_out):
@@ -153,10 +143,6 @@ class RNN(BaseModel):
 
         all_predictions = model_out['training_pred']
         all_targets = batch.poses[:, 1:]
-        # print('prediction shape:' + str(predictions[0].shape))
-        # print('targets shape:' + str(targets[0].shape))
-        # print('preall_prediction shape:' +  str(all_predictions[0].shape))
-        # print('all_targets shape:' + str(all_targets[0].shape))
         total_loss = self.loss_fun(all_predictions, all_targets)
 
         # If you have more than just one loss, just add them to this dict and they will automatically be logged.

@@ -44,6 +44,7 @@ class BaseModel(nn.Module):
 class Seq2Seq_LSTM2(BaseModel):
     """
     This is a  seq2seq model as implemented in https://github.com/enriccorona/human-motion-prediction-pytorch/blob/master/src/seq2seq_model.py .
+    We replaced the GRU cell proposed, by two LSTM cells.
     """
 
     def __init__(self, config):
