@@ -142,7 +142,7 @@ def _evaluate(net, data_loader, metrics_engine):
     return loss_vals_agg
 
 
-def evaluate_test(model_dir, predict=True, viz=False):
+def evaluate_test(model_dir, predict=True, viz=False, update_config=True):
     """
     Load a model, evaluate it on the test set and save the predictions into the model directory.
     :param model_dir: The directory of the model to load.
@@ -202,8 +202,9 @@ def evaluate_test(model_dir, predict=True, viz=False):
                     iteration + 1, epoch + 1, me.get_summary_string(valid_metrics)))
     
     # add validation metrics to config
-    model_config.update(me.to_dict(valid_metrics, 'valid'))
-    model_config.to_json(os.path.join(model_dir, 'config.json'))
+    if update_config:
+        model_config.update(me.to_dict(valid_metrics, 'valid'))
+        model_config.to_json(os.path.join(model_dir, 'config.json'))
 
 
     if predict:
@@ -249,6 +250,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_id', required=True, help='Which models to evaluate.')
     parser.add_argument('--no_predict', action='store_true', help='Do not compute predictions for test data.')
+    parser.add_argument('--no_config_update', action='store_true', help='Do not update config of model.')
     parser.add_argument('--viz', action='store_true', help='Visualize results.')
     args = parser.parse_args()
     
@@ -268,5 +270,5 @@ if __name__ == '__main__':
     
     for model_dir in model_dirs:
         print(f'Processing {model_dir}')
-        evaluate_test(model_dir, predict=(not args.no_predict), viz=args.viz)
+        evaluate_test(model_dir, predict=(not args.no_predict), viz=args.viz, update_config=(not args.no_config_update))
 
