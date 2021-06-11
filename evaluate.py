@@ -254,7 +254,7 @@ if __name__ == '__main__':
     parser.add_argument('--viz', action='store_true', help='Visualize results.')
     args = parser.parse_args()
     
-    available_models = ['DummyModel', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN']
+    available_models = ['DummyModel', 'Seq2Seq', 'Seq2Seq_LSTM2', 'Seq2Seq_LSTM3', 'RNN2', 'DCT_GCN', 'DCT_ATT_GCN', 'SPL']
 
     if args.model_id == "all":
         print("Evaluating all models in experiment folder")
