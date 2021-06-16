@@ -55,16 +55,6 @@ def loss_pose_joint_sum(predictions, targets, n_frames = 144):
     loss_per_sample_and_seq = loss_per_joint.sum(dim=-1) # (N, F)
 
     return loss_per_sample_and_seq.mean()
-    """
-
-    diff = predictions - targets
-    per_joint_loss = (diff * diff).view(-1, n_frames, 15, 9) #TODO: adjust such that it doesn't use hardcoded
-    per_joint_loss = per_joint_loss.sum(dim=-1)
-    per_joint_loss = per_joint_loss.sqrt()
-    per_joint_loss = per_joint_loss.sum(dim=-1)
-
-    return per_joint_loss.mean()
-    """
 
 def loss_pose_joint_sum_squared(predictions, targets):
     """
