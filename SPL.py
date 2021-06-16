@@ -62,7 +62,7 @@ class BaseModel(nn.Module):
 
 class SPL(BaseModel):
     """
-    This models the implementation of RNN as described in
+    This models the implementation of the spl layer as described in
     https://ait.ethz.ch/projects/2019/spl/
     """
 
@@ -154,7 +154,6 @@ class SPL(BaseModel):
             l_elbow = self.l_elbow(torch.cat((state_h,  spine1, spine2, spine3, l_collar, l_shoulder), dim = -1))
             r_elbow = self.r_elbow(torch.cat((state_h,  spine1, spine2, spine3,r_collar, r_shoulder), dim = -1))
 
-            #print(torch.cat((l_hip, r_hip, spine1), dim = -1).shape)
 
             state = torch.cat((l_hip, r_hip, spine1, l_knee, r_knee, spine2, spine3, neck,
                                l_collar, r_collar, head, l_shoulder, r_shoulder, l_elbow, r_elbow), dim = -1)
@@ -188,14 +187,9 @@ class SPL(BaseModel):
         """
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
-        #print("predictions " + str(predictions.shape))
-        #print("targets " + str(targets.shape))
-        #total_loss = mse(predictions, targets)
 
         all_predictions = model_out['training_predictions']
         all_targets = batch.poses[:, 1:]
-        #print("all_predictions " + str(all_predictions.shape))
-        #print("all_targets " + str(all_targets.shape))
 
         total_loss = self.loss_fun(all_predictions, all_targets)
 

@@ -137,14 +137,8 @@ class RNN2(BaseModel):
         """
         predictions = model_out['predictions']
         targets = batch.poses[:, self.config.seed_seq_len:]
-        #print("predictions " + str(predictions.shape))
-        #print("targets " + str(targets.shape))
-        #total_loss = mse(predictions, targets)
-
         all_predictions = model_out['training_predictions']
         all_targets = batch.poses[:, 1:]
-        #print("all_predictions " + str(all_predictions.shape))
-        #print("all_targets " + str(all_targets.shape))
 
         total_loss = self.loss_fun(all_predictions, all_targets)
 

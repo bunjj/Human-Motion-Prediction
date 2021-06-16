@@ -42,7 +42,7 @@ class BaseModel(nn.Module):
 class RNN3(BaseModel):
     """
     This models the implementation of RNN as described in
-    simple clean code version
+    simple clean code version, with multiple LSTM cells which lead to overfitting
     https://ait.ethz.ch/projects/2019/spl/
     """
 

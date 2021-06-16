@@ -44,17 +44,17 @@ class BaseModel(nn.Module):
 class ZeroVelocity(BaseModel):
     """
     Implementation of the zero velocity model for a comparison
+    As was described in "On human motion prediction using recurrent neural networks"
+    https://openaccess.thecvf.com/content_cvpr_2017/papers/Martinez_On_Human_Motion_CVPR_2017_paper.pdf
     """
 
     def __init__(self, config):
-        self.n_history =1
         super(ZeroVelocity, self).__init__(config)
 
     # noinspection PyAttributeOutsideInit
     def create_model(self):
-        # In this model we simply feed the last time steps of the seed to a dense layer and
-        # predict the targets directly.
-        self.dense = nn.Linear(in_features=self.n_history * self.pose_size,
+        # Just a dummy layer for convenience to avoid an empty parameter list, never used
+        self.dummy = nn.Linear(in_features=self.pose_size,
                                out_features=self.config.target_seq_len * self.pose_size)
 
     def forward(self, batch: AMASSBatch):
@@ -66,15 +66,14 @@ class ZeroVelocity(BaseModel):
         model_out = {'seed': batch.poses[:, :self.config.seed_seq_len],
                      'predictions': None}
         batch_size = batch.batch_size
-        model_in = batch.poses[:, self.config.seed_seq_len-self.n_history:self.config.seed_seq_len]
+        model_in = batch.poses[:, self.config.seed_seq_len-1]
         pred = model_in.repeat_interleave(self.config.target_seq_len, dim = 0)
-        #pred = self.dense(model_in.reshape(batch_size, -1))
         model_out['predictions'] = pred.reshape(batch_size, self.config.target_seq_len, -1)
         return model_out
 
     def backward(self, batch: AMASSBatch, model_out):
         """
-        The backward pass.
+        The backward pass. Here this again is just a dummy function. It doesn't really do much.
         :param batch: The same batch of data that was passed into the forward pass.
         :param model_out: Whatever the forward pass returned.
         :return: The loss values for book-keeping, as well as the targets for convenience.
@@ -84,12 +83,7 @@ class ZeroVelocity(BaseModel):
 
         total_loss = self.loss_fun(predictions, targets)
 
-        # If you have more than just one loss, just add them to this dict and they will automatically be logged.
         loss_vals = {'total_loss': total_loss.cpu().item()}
 
-        #if self.training:
-            # We only want to do backpropagation in training mode, as this function might also be called when evaluating
-            # the model on the validation set.
-        #    total_loss.backward()
 
         return loss_vals, targets
